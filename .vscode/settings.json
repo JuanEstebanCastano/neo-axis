@@ -1,0 +1,58 @@
+{
+  // Usar la versión de TypeScript del proyecto, no la que trae VS Code
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Guardado y formato
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // ESLint 9 (configuración plana) en el monorepo
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.validate": ["javascript", "typescript"],
+
+  // Ocultar ruido de build y dependencias
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.pnpm-store": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/pnpm-lock.yaml": true,
+    "packages/db/src/schema.d.ts": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true
+  },
+
+  // Reconocer el compose como archivo de Docker
+  "files.associations": {
+    "docker-compose*.yml": "dockercompose"
+  },
+
+  // Conexión a la base de datos de desarrollo (extensión SQLTools).
+  // El puerto 5432 queda expuesto por docker-compose. Pide la contraseña
+  // al conectar, así no se guarda ningún secreto en el repo.
+  "sqltools.connections": [
+    {
+      "name": "Neo Axis (dev)",
+      "driver": "PostgreSQL",
+      "server": "localhost",
+      "port": 5432,
+      "database": "neoaxis",
+      "username": "neoaxis",
+      "askForPassword": true
+    }
+  ]
+}

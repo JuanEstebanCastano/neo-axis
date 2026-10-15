@@ -1,0 +1,15 @@
+# Normalizar saltos de línea: LF en el repositorio para todo el texto.
+* text=auto eol=lf
+
+# Archivos que deben conservar LF sí o sí (corren en Linux/Docker)
+*.sh text eol=lf
+Makefile text eol=lf
+
+# Archivos binarios: no tocar
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.gz binary
+*.zip binary
