@@ -1,0 +1,21 @@
+# TLS automático con Let's Encrypt. Reemplazá el dominio.
+neoaxis.tudominio.co {
+	encode zstd gzip
+
+	# API
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Frontend (agregar el servicio web al compose cuando exista)
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
