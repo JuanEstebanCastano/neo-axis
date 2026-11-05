@@ -104,3 +104,69 @@ export async function search(
 
   return rows;
 }
+
+// ── Recomendaciones semánticas (pgvector) ────────────────────────────────
+// La extensión vive en el schema 'extensions'; el search_path del API es
+// 'app,public', así que calificamos el operador: OPERATOR(extensions.<=>).
+
+export interface RecoHit {
+  entityType: string;
+  entityId: string;
+  title: string | null;
+  distance: number;
+}
+
+export async function recommendByEmbedding(
+  db: Database,
+  embedding: number[],
+  opts: { excludeEntityId?: string | undefined; limit?: number | undefined } = {},
+): Promise<RecoHit[]> {
+  const vec = `[${embedding.join(",")}]`;
+  const limit = Math.min(opts.limit ?? 10, 50);
+
+  const { rows } = await sql<RecoHit>`
+    SELECT entity_type AS "entityType",
+           entity_id::text AS "entityId",
+           title,
+           embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector AS distance
+    FROM app.search_documents
+    WHERE embedding IS NOT NULL
+      ${opts.excludeEntityId ? sql`AND entity_id <> ${opts.excludeEntityId}::uuid` : sql``}
+    ORDER BY embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector
+    LIMIT ${limit}
+  `.execute(db);
+
+  return rows;
+}
+
+/**
+ * Genera y guarda los embeddings que falten en search_documents.
+ * Pensado para backfill o un job periódico; devuelve cuántos indexó.
+ */
+export async function backfillEmbeddings(
+  db: Database,
+  embed: (text: string) => Promise<number[]>,
+  batch = 200,
+): Promise<number> {
+  const rows = await db
+    .selectFrom("searchDocuments")
+    .select(["entityType", "entityId", "title", "content"])
+    .where("embedding", "is", null)
+    .limit(batch)
+    .execute();
+
+  let indexed = 0;
+  for (const r of rows) {
+    const text = [r.title, r.content].filter(Boolean).join("\n").trim();
+    if (!text) continue;
+    const emb = await embed(text);
+    const vec = `[${emb.join(",")}]`;
+    await sql`
+      UPDATE app.search_documents
+      SET embedding = ${vec}::extensions.vector
+      WHERE entity_type = ${r.entityType} AND entity_id = ${r.entityId}::uuid
+    `.execute(db);
+    indexed++;
+  }
+  return indexed;
+}
