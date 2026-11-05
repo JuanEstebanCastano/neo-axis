@@ -47,18 +47,32 @@ export function createDb({ connectionString, maxConnections = 10 }: DbOptions) {
 
 export type Database = ReturnType<typeof createDb>;
 
-/** Comprueba conectividad y que la versión soporte uuidv7(). */
+/**
+ * Comprueba conectividad y que exista una función `uuidv7()` utilizable.
+ *
+ * En PostgreSQL 18+ `uuidv7()` es nativa. En versiones anteriores (p. ej.
+ * Supabase, que hoy corre PG17) el esquema aporta una función de
+ * compatibilidad `app.uuidv7()`; como la conexión usa `search_path=app,public`,
+ * el nombre `uuidv7()` resuelve a esa función. Por eso ya no exigimos PG18:
+ * basta con que la llamada devuelva un UUID válido.
+ */
 export async function assertDatabaseReady(db: Database): Promise<void> {
-  const { rows } = await sql<{ version: number; uuid: string }>`
+  const { rows } = await sql<{ version: number; uuid: string | null }>`
     SELECT current_setting('server_version_num')::int AS version,
            uuidv7()::text AS uuid
   `.execute(db);
 
   const row = rows[0];
   if (!row) throw new Error("La base de datos no respondió al chequeo de arranque.");
-  if (row.version < 180000) {
+
+  // Si uuidv7() no existiera, la consulta de arriba ya habría fallado. Aquí sólo
+  // confirmamos que el valor devuelto tiene forma de UUID versión 7.
+  const isUuidV7 = row.uuid != null &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.uuid);
+  if (!isUuidV7) {
     throw new Error(
-      `Se requiere PostgreSQL 18 o superior (uuidv7() nativo). Detectado: ${row.version}.`,
+      `uuidv7() no devolvió un UUID válido (PostgreSQL ${row.version}). ` +
+        "Verificá que el esquema 'app' y app.uuidv7() estén aplicados.",
     );
   }
 }
