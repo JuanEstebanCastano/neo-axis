@@ -17,6 +17,7 @@ import { config } from "../../config.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { issueSession, revokeSession } from "../../lib/session.js";
 import { badRequest, conflict, unauthorized } from "../../lib/errors.js";
+import { prettifyZodError } from "../../lib/validation.js";
 
 const registerBody = z.object({
   username: z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9_-]{2,39}$/, "Username inválido"),
@@ -33,7 +34,7 @@ const loginBody = z.object({
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/auth/register", async (req, reply) => {
     const parsed = registerBody.safeParse(req.body);
-    if (!parsed.success) throw badRequest(z.prettifyError(parsed.error));
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
     const { username, displayName, email, password } = parsed.data;
 
     const digest = await hashPassword(password);

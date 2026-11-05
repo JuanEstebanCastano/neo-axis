@@ -12,6 +12,17 @@ al inicio del nombre.
 | `20261015000001_init_schema.sql` | Crea las 42 tablas originales |
 | `20261015000002_review_fixes.sql` | Correcciones encontradas al revisar el diseño |
 
+## consolidated/
+
+Snapshots del esquema completo en **un solo archivo** (init + review_fixes),
+por comodidad para levantar una base desde cero de una corrida. No son la
+fuente de verdad —lo son las migraciones de arriba—. Ver
+[`consolidated/README.md`](consolidated/README.md).
+
+- `consolidated/neo_axis_pg18.sql` — PostgreSQL 18+ (uuidv7 nativa).
+- `consolidated/neo_axis_supabase.sql` — Supabase/PG17 (app.uuidv7 compat).
+  Refleja el estado ya aplicado en el proyecto Supabase.
+
 ## Las tres reglas
 
 **1. Una migración aplicada no se edita nunca más.**

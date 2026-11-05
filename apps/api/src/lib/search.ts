@@ -80,7 +80,7 @@ export interface SearchHit {
 export async function search(
   db: Database,
   query: string,
-  opts: { limit?: number; entityType?: IndexableEntity } = {},
+  opts: { limit?: number | undefined; entityType?: IndexableEntity | undefined } = {},
 ): Promise<SearchHit[]> {
   const limit = Math.min(opts.limit ?? 20, 100);
 

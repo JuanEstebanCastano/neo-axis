@@ -18,13 +18,13 @@ import { notFound, forbidden } from "../../lib/errors.js";
 
 export interface CreatePostInput {
   authorId: string;
-  title?: string | null;
-  slug?: string | null;
-  excerpt?: string | null;
-  bodyMarkdown?: string | null;
-  visibility?: "community" | "restricted";
-  tagIds?: string[];
-  mentionedUserIds?: string[];
+  title?: string | null | undefined;
+  slug?: string | null | undefined;
+  excerpt?: string | null | undefined;
+  bodyMarkdown?: string | null | undefined;
+  visibility?: "community" | "restricted" | undefined;
+  tagIds?: string[] | undefined;
+  mentionedUserIds?: string[] | undefined;
 }
 
 /**
