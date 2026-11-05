@@ -17,6 +17,7 @@ import { createPost, softDeletePost } from "./service.js";
 import { canViewPost, PERMISSIONS } from "../../lib/rbac.js";
 import { search } from "../../lib/search.js";
 import { badRequest, notFound } from "../../lib/errors.js";
+import { prettifyZodError } from "../../lib/validation.js";
 
 const createBody = z.object({
   title: z.string().max(240).nullish(),
@@ -89,7 +90,7 @@ export const postRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const session = app.requireAuth(req);
     const parsed = createBody.safeParse(req.body);
-    if (!parsed.success) throw badRequest(z.prettifyError(parsed.error));
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
 
     const post = await createPost(app.db, { authorId: session.userId, ...parsed.data });
     return reply.code(201).send({ post });

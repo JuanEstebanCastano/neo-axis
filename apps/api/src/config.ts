@@ -13,6 +13,7 @@
  */
 
 import { z } from "zod";
+import { prettifyZodError } from "./lib/validation.js";
 
 // El proceso no arranca con configuración inválida. Fallar en el boot es
 // infinitamente mejor que fallar en el primer request de un usuario real.
@@ -42,7 +43,7 @@ const schema = z.object({
 const parsed = schema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Configuración inválida:\n", z.prettifyError(parsed.error));
+  console.error("Configuración inválida:\n", prettifyZodError(parsed.error));
   process.exit(1);
 }
 

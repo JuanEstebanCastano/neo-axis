@@ -35,12 +35,18 @@ declare module "fastify" {
 }
 
 export default fp(async (app) => {
+  // Fastify v5 prohíbe decorar el request con un tipo referencia (Set/objeto)
+  // directamente: se declaran como null y se inicializan por request en el hook.
   app.decorateRequest("session", null);
-  app.decorateRequest("permissions", new Set<string>());
+  // Valor por defecto null (primitivo) para no violar la regla de tipos
+  // referencia de Fastify v5; el hook onRequest lo reemplaza por un Set real
+  // en cada request antes de que cualquier ruta lo lea.
+  app.decorateRequest("permissions", null as unknown as ReadonlySet<string>);
 
   // Resuelve la identidad en cada request. No corta: sólo informa.
   // Los permisos se cargan una vez por request y se reutilizan.
   app.addHook("onRequest", async (req) => {
+    req.permissions = new Set<string>();
     const token = req.cookies[config.SESSION_COOKIE_NAME];
     if (!token) return;
 
