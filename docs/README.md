@@ -10,6 +10,7 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 03 | [Tu primer cambio](03-tu-primer-cambio.md) | Ejercicio guiado, de punta a punta |
 | 04 | [Problemas comunes](04-problemas-comunes.md) | Cuando algo se rompe |
 | 05 | [Decisiones](05-decisiones.md) | Por qué se eligió cada herramienta |
+| 06 | [Propuesta de evolución](06-propuesta-evolucion.md) | Hacia dónde crece: colecciones, biblioteca real y recomendaciones |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.
