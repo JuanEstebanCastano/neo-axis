@@ -105,4 +105,6 @@ const shutdown = async (signal: string) => {
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
 
-await app.listen({ port: config.API_PORT, host: "0.0.0.0" });
+// Escucha el PORT que inyecta la plataforma (PaaS/contenedor) si existe; si no,
+// el API_PORT de config. host 0.0.0.0 para ser accesible desde el reverse-proxy.
+await app.listen({ port: Number(process.env.PORT) || config.API_PORT, host: "0.0.0.0" });
