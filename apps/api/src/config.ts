@@ -21,11 +21,15 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
-  PUBLIC_WEB_ORIGIN: z.string().url(),
+  // Uno o varios orígenes permitidos para CORS, separados por coma.
+  PUBLIC_WEB_ORIGIN: z.string().min(1),
 
   SESSION_COOKIE_NAME: z.string().min(1).default("neoaxis_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   SESSION_SECRET: z.string().min(32),
+  // 'none' (+Secure) habilita la cookie en despliegues con front y API en
+  // dominios distintos. 'lax' alcanza cuando comparten origen (proxy en dev).
+  COOKIE_SAMESITE: z.enum(["lax", "none", "strict"]).default("lax"),
 
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),

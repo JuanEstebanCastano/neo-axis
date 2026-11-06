@@ -26,6 +26,7 @@ import { postRoutes } from "./modules/posts/routes.js";
 import { collectionRoutes } from "./modules/collections/routes.js";
 import { bookRoutes } from "./modules/books/routes.js";
 import { recommendationRoutes } from "./modules/recommendations/routes.js";
+import { snippetRoutes } from "./modules/snippets/routes.js";
 import { AppError } from "./lib/errors.js";
 
 const app = Fastify({
@@ -37,7 +38,8 @@ const app = Fastify({
 });
 
 await app.register(helmet, { contentSecurityPolicy: isProduction });
-await app.register(cors, { origin: config.PUBLIC_WEB_ORIGIN, credentials: true });
+const allowedOrigins = config.PUBLIC_WEB_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
+await app.register(cors, { origin: allowedOrigins, credentials: true });
 await app.register(cookie, { secret: config.SESSION_SECRET });
 await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
 
@@ -50,6 +52,7 @@ await app.register(async (api) => {
   await api.register(collectionRoutes);
   await api.register(bookRoutes);
   await api.register(recommendationRoutes);
+  await api.register(snippetRoutes);
 }, { prefix: "/api/v1" });
 
 app.get("/health", async () => ({ status: "ok", uptime: process.uptime() }));

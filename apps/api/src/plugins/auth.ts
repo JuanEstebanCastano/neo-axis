@@ -70,8 +70,9 @@ export default fp(async (app) => {
   app.decorate("setSessionCookie", (reply, token, expiresAt) => {
     reply.setCookie(config.SESSION_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
+      // SameSite=None exige Secure. También forzamos Secure en producción.
+      secure: isProduction || config.COOKIE_SAMESITE === "none",
+      sameSite: config.COOKIE_SAMESITE,
       path: "/",
       expires: expiresAt,
       signed: false,
