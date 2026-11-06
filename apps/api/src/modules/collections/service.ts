@@ -52,6 +52,19 @@ export interface AddItemInput {
   sortOrder?: number | undefined;
 }
 
+/**
+ * Mapea el tipo de ítem a las cuatro columnas polimórficas: la del tipo lleva
+ * el id, las otras tres van en null (lo que exige el CHECK de la tabla).
+ */
+export function itemColumns(itemType: CollectionItemType, targetId: string) {
+  return {
+    bookId: itemType === "book" ? targetId : null,
+    repositoryId: itemType === "repository" ? targetId : null,
+    snippetId: itemType === "snippet" ? targetId : null,
+    postId: itemType === "post" ? targetId : null,
+  };
+}
+
 async function assertOwner(db: Database, collectionId: string, actorId: string) {
   const col = await db
     .selectFrom("collections")
@@ -77,10 +90,7 @@ export async function addCollectionItem(db: Database, input: AddItemInput) {
     .values({
       collectionId: input.collectionId,
       itemType: input.itemType,
-      bookId: input.itemType === "book" ? targetId : null,
-      repositoryId: input.itemType === "repository" ? targetId : null,
-      snippetId: input.itemType === "snippet" ? targetId : null,
-      postId: input.itemType === "post" ? targetId : null,
+      ...itemColumns(input.itemType, targetId),
       note: input.note ?? null,
       sortOrder: input.sortOrder ?? 0,
     })

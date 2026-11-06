@@ -11,7 +11,7 @@
     "db:types": "kysely-codegen --dialect postgres --camel-case --default-schema app --out-file packages/db/src/schema.d.ts",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
-    "test": "node --test apps/**/dist/**/*.test.js"
+    "test": "node --test \"apps/**/dist/**/*.test.js\""
   },
   "devDependencies": {
     "kysely-codegen": "^0.18.5",
