@@ -82,6 +82,20 @@ services:
     deploy:
       replicas: 1
 
+  # Reverse-proxy con TLS automático. Expone la API en API_DOMAIN_PLACEHOLDER.
+  # El CORS lo pone SOLO Fastify; Caddy no agrega cabeceras CORS.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   pgdata:
   miniodata:
+  caddy_data:
+  caddy_config:
