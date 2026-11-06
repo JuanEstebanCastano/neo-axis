@@ -7,7 +7,7 @@ import { api, type Book } from "../lib/api";
 
 function Cover({ book }: { book: Book }) {
   if (book.coverUrl) {
-    return <div className="book__cover"><img src={book.coverUrl} alt={`Portada de ${book.title}`} loading="lazy" /></div>;
+    return <div className="book__cover"><img src={book.coverUrl} alt={`Portada de ${book.title}`} loading="lazy" referrerPolicy="no-referrer" /></div>;
   }
   return (
     <div className="book__cover book__cover--ph">

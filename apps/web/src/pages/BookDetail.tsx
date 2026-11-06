@@ -28,7 +28,7 @@ function Recommendations({ query }: { query: string }) {
         <div className="reco" key={h.entityId}>
           <span className="reco__rank">{i + 1}</span>
           <span className="reco__t">{h.title ?? "—"}</span>
-          <span className="reco__d">{(100 - h.distance * 100).toFixed(0)}% afín</span>
+          <span className="reco__d">{Math.max(0, Math.round((1 - h.distance) * 100))}% afín</span>
         </div>
       ))}
     </div>
@@ -66,7 +66,7 @@ export function BookDetail() {
       ) : (
         <div className="detail">
           <div className="detail__cover">
-            {book.coverUrl ? <img src={book.coverUrl} alt={`Portada de ${book.title}`} /> : <Icon name="book" size={48} />}
+            {book.coverUrl ? <img src={book.coverUrl} alt={`Portada de ${book.title}`} referrerPolicy="no-referrer" /> : <Icon name="book" size={48} />}
           </div>
 
           <div>

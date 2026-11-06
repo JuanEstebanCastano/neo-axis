@@ -4,7 +4,8 @@
 
 // En desarrollo, BASE queda relativo ("/api/v1") y usa el proxy de Vite.
 // En producción, definí VITE_API_URL (p. ej. https://api.midominio.com).
-const BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
+// Se normaliza quitando la barra final para no generar "//api/v1".
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "") + "/api/v1";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {

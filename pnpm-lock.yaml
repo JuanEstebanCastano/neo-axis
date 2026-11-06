@@ -13,7 +13,7 @@ importers:
         version: 9.39.5
       kysely-codegen:
         specifier: ^0.18.5
-        version: 0.18.5(kysely@0.27.6)(pg@8.23.1)(typescript@5.9.3)
+        version: 0.18.5(kysely@0.28.19)(pg@8.23.1)(typescript@5.9.3)
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -98,8 +98,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/db
       nodemailer:
-        specifier: ^6.10.0
-        version: 6.10.1
+        specifier: ^10.1.4
+        version: 10.3.1
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -114,8 +114,8 @@ importers:
   packages/db:
     dependencies:
       kysely:
-        specifier: ^0.27.5
-        version: 0.27.6
+        specifier: ^0.28.17
+        version: 0.28.19
       pg:
         specifier: ^8.13.1
         version: 8.23.1
@@ -1313,9 +1313,9 @@ packages:
       tedious:
         optional: true
 
-  kysely@0.27.6:
-    resolution: {integrity: sha512-FIyV/64EkKhJmjgC0g2hygpBv5RNWVPyNCqSAD7eTCv6eFWNIi4PN1UvdSJGicN/o35bnevgis4Y0UDC0qi8jQ==}
-    engines: {node: '>=14.0.0'}
+  kysely@0.28.19:
+    resolution: {integrity: sha512-sXoKWuQjtorwxDLiws0ZSPGGne/hs+fGHIII7vXquSBFgHwLXgFIHN9tTv3kNdVkJ5d3xtXC84GjjWMYLqdFWg==}
+    engines: {node: '>=20.0.0'}
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -1373,9 +1373,9 @@ packages:
     resolution: {integrity: sha512-6li2QanLsAXpIH2R6j77MzRyvOyrvdTqlKtO4CgBdHGNvN99ZZfyxszHc5o5+IZBWD5u6Hzwg83JoGXmqZNG9Q==}
     engines: {node: '>=18'}
 
-  nodemailer@6.10.1:
-    resolution: {integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==}
-    engines: {node: '>=6.0.0'}
+  nodemailer@10.3.1:
+    resolution: {integrity: sha512-uF0AFsJC07Y1vdW7p580DKAnh7rAO+4UPSSB3mDCPNDufoiaOebV6JmrzpxB14OjEEEiBsNdYoM2Y+fN8M7BBA==}
+    engines: {node: '>=20.0.0'}
 
   obliterator@2.0.5:
     resolution: {integrity: sha512-42CPE9AhahZRsMNslczq0ctAEtqk8Eka26QofnqC346BZdHDySk3LWka23LI7ULIw11NmltpiLagIq8gBozxTw==}
@@ -2918,14 +2918,14 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  kysely-codegen@0.18.5(kysely@0.27.6)(pg@8.23.1)(typescript@5.9.3):
+  kysely-codegen@0.18.5(kysely@0.28.19)(pg@8.23.1)(typescript@5.9.3):
     dependencies:
       chalk: 4.1.2
       cosmiconfig: 9.0.2(typescript@5.9.3)
       dotenv: 16.6.1
       dotenv-expand: 12.0.3
       git-diff: 2.0.7
-      kysely: 0.27.6
+      kysely: 0.28.19
       micromatch: 4.0.8
       minimist: 1.2.8
       pluralize: 8.0.0
@@ -2935,7 +2935,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  kysely@0.27.6: {}
+  kysely@0.28.19: {}
 
   levn@0.4.1:
     dependencies:
@@ -2990,7 +2990,7 @@ snapshots:
 
   node-releases@2.0.63: {}
 
-  nodemailer@6.10.1: {}
+  nodemailer@10.3.1: {}
 
   obliterator@2.0.5: {}
 

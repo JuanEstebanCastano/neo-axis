@@ -15,7 +15,7 @@ import { createDb, assertDatabaseReady } from "@neoaxis/db";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import { processEmailBatch } from "./jobs/email.js";
-import { purgeExpiredSessions } from "./jobs/maintenance.js";
+import { purgeExpiredSessions, purgeSoftDeletedPosts, purgeConsumedTokens } from "./jobs/maintenance.js";
 
 const env = z.object({
   DATABASE_URL: z.string().url(),
@@ -68,8 +68,10 @@ while (running) {
 
     // Mantenimiento cada ~1h asumiendo poll de 5s.
     if (++ticks % 720 === 0) {
-      const purged = await purgeExpiredSessions(db);
-      log("Mantenimiento ejecutado", { sessionsPurged: purged });
+      const sessionsPurged = await purgeExpiredSessions(db);
+      const postsPurged = await purgeSoftDeletedPosts(db);
+      const tokensPurged = await purgeConsumedTokens(db);
+      log("Mantenimiento ejecutado", { sessionsPurged, postsPurged, tokensPurged });
     }
 
     // Si el lote vino lleno hay más trabajo: no dormir.

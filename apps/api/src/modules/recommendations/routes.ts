@@ -16,7 +16,9 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { embedText, embeddingsEnabled } from "../../lib/embeddings.js";
 import { recommendByEmbedding, backfillEmbeddings } from "../../lib/search.js";
+import { canViewPost, PERMISSIONS } from "../../lib/rbac.js";
 import { AppError, badRequest, notFound } from "../../lib/errors.js";
+import { recommendQuery } from "./schemas.js";
 
 const disabled = () =>
   new AppError(503, "embeddings_off", "Recomendaciones no configuradas (falta EMBEDDINGS_URL)");
@@ -25,13 +27,7 @@ export const recommendationRoutes: FastifyPluginAsync = async (app) => {
   app.get("/recomendaciones", async (req) => {
     if (!embeddingsEnabled()) throw disabled();
 
-    const q = z
-      .object({
-        entityId: z.string().uuid().optional(),
-        q: z.string().min(2).max(500).optional(),
-        limit: z.coerce.number().int().min(1).max(50).default(10),
-      })
-      .parse(req.query);
+    const q = recommendQuery.parse(req.query);
 
     let embedding: number[];
     let exclude: string | undefined;
@@ -39,10 +35,15 @@ export const recommendationRoutes: FastifyPluginAsync = async (app) => {
     if (q.entityId) {
       const row = await app.db
         .selectFrom("searchDocuments")
-        .select(["title", "content"])
+        .select(["entityType", "title", "content"])
         .where("entityId", "=", q.entityId)
         .executeTakeFirst();
       if (!row) throw notFound("Esa entidad no está indexada");
+      // Si es un post, no revelar/usar entidades que el solicitante no puede ver.
+      if (row.entityType === "post") {
+        const ok = await canViewPost(app.db, q.entityId, req.session?.userId ?? null);
+        if (!ok) throw notFound("Esa entidad no está indexada");
+      }
       embedding = await embedText([row.title, row.content].filter(Boolean).join("\n"));
       exclude = q.entityId;
     } else if (q.q) {
@@ -58,10 +59,13 @@ export const recommendationRoutes: FastifyPluginAsync = async (app) => {
     return { hits };
   });
 
-  // Genera los embeddings faltantes (backfill). Requiere sesión.
-  app.post("/recomendaciones/reindex", async (req) => {
+  // Backfill de embeddings: operación costosa (hasta N llamadas a la Edge
+  // Function). Sólo admin (users.manage_roles) y acotada por rate limit.
+  app.post("/recomendaciones/reindex", {
+    config: { rateLimit: { max: 2, timeWindow: "1 hour" } },
+  }, async (req) => {
     if (!embeddingsEnabled()) throw disabled();
-    app.requireAuth(req);
+    await app.requirePermission(PERMISSIONS.usersManageRoles)(req);
     const indexed = await backfillEmbeddings(app.db, embedText);
     return { indexed };
   });

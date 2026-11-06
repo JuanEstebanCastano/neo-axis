@@ -30,7 +30,9 @@ export async function listSnippets(db: Database, limit: number): Promise<Snippet
            s.filename, s.source_code AS "sourceCode", s.created_at AS "createdAt",
            u.username AS "authorUsername", u.display_name AS "authorDisplayName"
     FROM app.post_snippets s
-    JOIN app.posts p ON p.id = s.post_id AND p.deleted_at IS NULL
+    JOIN app.posts p ON p.id = s.post_id
+      AND p.deleted_at IS NULL AND p.status = 'published'
+      AND p.hidden_at IS NULL AND p.visibility = 'community'
     JOIN app.users u ON u.id = p.author_id
     ORDER BY s.created_at DESC
     LIMIT ${limit}

@@ -28,6 +28,8 @@ export async function embedText(text: string): Promise<number[]> {
       ...(config.EMBEDDINGS_TOKEN ? { Authorization: `Bearer ${config.EMBEDDINGS_TOKEN}` } : {}),
     },
     body: JSON.stringify({ text }),
+    // No colgar el request si la Edge Function no responde.
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!res.ok) throw new Error(`La función embed falló: HTTP ${res.status}`);

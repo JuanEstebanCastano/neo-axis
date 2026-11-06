@@ -32,7 +32,7 @@ export interface IssuedSession {
   expiresAt: Date;
 }
 
-const hashToken = (token: string): Buffer =>
+export const hashToken = (token: string): Buffer =>
   createHash("sha256").update(token, "utf8").digest();
 
 export async function issueSession(

@@ -16,7 +16,7 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { notFound } from "../../lib/errors.js";
+import { notFound, forbidden } from "../../lib/errors.js";
 import { presignDownload } from "../../lib/storage.js";
 import { listBooks, getBook, setShelf } from "./service.js";
 
@@ -42,7 +42,7 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     const body = z
       .object({
         status: z.enum(["want", "reading", "read"]),
-        progress: z.coerce.number().int().min(0).max(100).default(0),
+        progress: z.coerce.number().int().min(0).max(100).optional(),
       })
       .parse(req.body);
     await setShelf(app.db, session.userId, id, body.status, body.progress);
@@ -67,14 +67,20 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     const file = await app.db
       .selectFrom("bookFiles as bf")
       .innerJoin("mediaAssets as ma", "ma.id", "bf.mediaAssetId")
+      .innerJoin("books as b", "b.id", "bf.bookId")
       .select(["bf.id as id", "bf.accessLevel as accessLevel", "ma.bucketName as bucketName", "ma.objectKey as objectKey"])
       .where("bf.id", "=", id)
+      .where("b.deletedAt", "is", null)
       .executeTakeFirst();
 
     if (!file) throw notFound("Archivo de libro no encontrado");
 
-    // public = libre; community/restricted = requiere sesión.
-    if (file.accessLevel !== "public") {
+    // public = libre; community = requiere sesión; restricted = denegado por
+    // defecto hasta que exista un modelo de autorización (permiso/entitlement).
+    if (file.accessLevel === "restricted") {
+      throw forbidden("Este archivo requiere una autorización que todavía no está disponible");
+    }
+    if (file.accessLevel === "community") {
       app.requireAuth(req);
     }
 

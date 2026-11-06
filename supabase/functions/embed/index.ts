@@ -20,12 +20,19 @@ Deno.serve(async (req) => {
         status: 400, headers: { 'Content-Type': 'application/json' },
       });
     }
+    if (text.length > 8000) {
+      return new Response(JSON.stringify({ error: 'texto demasiado largo (máx. 8000)' }), {
+        status: 413, headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const embedding = await model.run(text, { mean_pool: true, normalize: true });
     return new Response(JSON.stringify({ embedding }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    // No filtrar trazas internas al cliente.
+    console.error('embed error:', e);
+    return new Response(JSON.stringify({ error: 'no se pudo generar el embedding' }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }

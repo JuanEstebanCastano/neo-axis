@@ -19,41 +19,31 @@ import { search } from "../../lib/search.js";
 import { badRequest, notFound } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 
-const createBody = z.object({
-  title: z.string().max(240).nullish(),
-  slug: z.string().max(280).nullish(),
-  excerpt: z.string().max(500).nullish(),
-  bodyMarkdown: z.string().nullish(),
-  visibility: z.enum(["community", "restricted"]).default("community"),
-  tagIds: z.array(z.string().uuid()).max(10).optional(),
-  mentionedUserIds: z.array(z.string().uuid()).max(25).optional(),
-}).refine(
-  (v) => Boolean(v.title) || Boolean(v.bodyMarkdown?.trim()),
-  "Un post necesita al menos título o cuerpo", // espeja posts_content_ck
-);
+import { createBody, feedQuery, searchQuery } from "./schemas.js";
 
 export const postRoutes: FastifyPluginAsync = async (app) => {
   // Feed de la comunidad. Usa posts_feed_idx tal cual está definido en el DDL:
   // created_at DESC WHERE deleted_at IS NULL AND status='published' AND hidden_at IS NULL.
   app.get("/posts", async (req) => {
-    const q = z.object({
-      cursor: z.string().datetime().optional(),
-      limit: z.coerce.number().int().min(1).max(50).default(20),
-    }).parse(req.query);
+    const q = feedQuery.parse(req.query);
 
     let query = app.db
       .selectFrom("posts as p")
       .innerJoin("users as u", "u.id", "p.authorId")
+      // Los posts que son snippets viven en su propia sección: fuera del feed.
+      .leftJoin("postSnippets as ps", "ps.postId", "p.id")
       .select([
         "p.id as id", "p.title as title", "p.slug as slug", "p.excerpt as excerpt",
         "p.createdAt as createdAt", "u.username as authorUsername",
         "u.displayName as authorDisplayName", "u.avatarUrl as authorAvatarUrl",
       ])
+      .where("ps.id", "is", null)
       .where("p.deletedAt", "is", null)
       .where("p.status", "=", "published")
       .where("p.hiddenAt", "is", null)
       .where("p.visibility", "=", "community")
       .orderBy("p.createdAt", "desc")
+      .orderBy("p.id", "desc")
       .limit(q.limit);
 
     if (q.cursor) query = query.where("p.createdAt", "<", new Date(q.cursor));
@@ -106,11 +96,7 @@ export const postRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/search", async (req) => {
-    const q = z.object({
-      q: z.string().min(2).max(200),
-      type: z.enum(["post", "book", "comment", "user"]).optional(),
-      limit: z.coerce.number().int().min(1).max(50).default(20),
-    }).parse(req.query);
+    const q = searchQuery.parse(req.query);
 
     return { hits: await search(app.db, q.q, { limit: q.limit, entityType: q.type }) };
   });
