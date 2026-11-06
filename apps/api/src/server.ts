@@ -30,7 +30,7 @@ import { snippetRoutes } from "./modules/snippets/routes.js";
 import { ZodError } from "zod";
 import { AppError } from "./lib/errors.js";
 import { prettifyZodError } from "./lib/validation.js";
-import { isAllowedOrigin } from "./lib/origins.js";
+import { makeOriginMatcher, VERCEL_PREVIEW_REGEX } from "./lib/origins.js";
 
 const app = Fastify({
   logger: isProduction
@@ -41,22 +41,25 @@ const app = Fastify({
 });
 
 await app.register(helmet, { contentSecurityPolicy: isProduction });
-// CORS: origin como función (prod exacto + previews de Vercel anclados al slug).
-// Las peticiones sin Origin (mismo origen, curl, server-to-server) se permiten.
+// Matcher de orígenes: exactos de PUBLIC_WEB_ORIGIN + previews de Vercel.
+const exactOrigins = config.PUBLIC_WEB_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
+const isOriginAllowed = makeOriginMatcher(exactOrigins, VERCEL_PREVIEW_REGEX);
+
+// CORS: origin como función. Las peticiones sin Origin (mismo origen, curl,
+// server-to-server) se permiten (el matcher devuelve true para undefined).
 await app.register(cors, {
-  origin: (origin, cb) => cb(null, !origin || isAllowedOrigin(origin)),
+  origin: (origin, cb) => cb(null, isOriginAllowed(origin)),
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 });
 
-// Defensa CSRF: toda petición que muta estado y traiga un Origin debe venir de
-// un origen permitido. Usa EXACTAMENTE la misma función que el CORS, así los
-// previews de Vercel no quedan bloqueados. Cubre COOKIE_SAMESITE=none.
+// Defensa CSRF: toda petición que muta estado debe venir de un origen permitido.
+// Usa EXACTAMENTE el mismo matcher que el CORS (previews de Vercel incluidos).
+// Cubre COOKIE_SAMESITE=none.
 app.addHook("onRequest", async (req, reply) => {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
-  const origin = req.headers.origin;
-  if (origin && !isAllowedOrigin(origin)) {
+  if (!isOriginAllowed(req.headers.origin)) {
     return reply.code(403).send({ error: "forbidden", message: "Origen no permitido" });
   }
 });
