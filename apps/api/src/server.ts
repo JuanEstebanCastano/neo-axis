@@ -30,6 +30,7 @@ import { snippetRoutes } from "./modules/snippets/routes.js";
 import { ZodError } from "zod";
 import { AppError } from "./lib/errors.js";
 import { prettifyZodError } from "./lib/validation.js";
+import { isAllowedOrigin } from "./lib/origins.js";
 
 const app = Fastify({
   logger: isProduction
@@ -40,16 +41,22 @@ const app = Fastify({
 });
 
 await app.register(helmet, { contentSecurityPolicy: isProduction });
-const allowedOrigins = config.PUBLIC_WEB_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
-await app.register(cors, { origin: allowedOrigins, credentials: true });
+// CORS: origin como función (prod exacto + previews de Vercel anclados al slug).
+// Las peticiones sin Origin (mismo origen, curl, server-to-server) se permiten.
+await app.register(cors, {
+  origin: (origin, cb) => cb(null, !origin || isAllowedOrigin(origin)),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+});
 
 // Defensa CSRF: toda petición que muta estado y traiga un Origin debe venir de
-// un origen permitido. Cubre el caso COOKIE_SAMESITE=none (front y API en
-// dominios distintos), donde el navegador manda la cookie cross-site.
+// un origen permitido. Usa EXACTAMENTE la misma función que el CORS, así los
+// previews de Vercel no quedan bloqueados. Cubre COOKIE_SAMESITE=none.
 app.addHook("onRequest", async (req, reply) => {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
   const origin = req.headers.origin;
-  if (origin && !allowedOrigins.includes(origin)) {
+  if (origin && !isAllowedOrigin(origin)) {
     return reply.code(403).send({ error: "forbidden", message: "Origen no permitido" });
   }
 });
