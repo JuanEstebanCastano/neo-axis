@@ -38,6 +38,11 @@ const schema = z.object({
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
+
+  // Recomendaciones semánticas (opcional). URL de la Edge Function de embeddings
+  // y el token (JWT anon) con el que el API la invoca.
+  EMBEDDINGS_URL: z.string().url().optional(),
+  EMBEDDINGS_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

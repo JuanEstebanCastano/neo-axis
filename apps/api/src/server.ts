@@ -23,6 +23,9 @@ import dbPlugin from "./plugins/db.js";
 import authPlugin from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/routes.js";
 import { postRoutes } from "./modules/posts/routes.js";
+import { collectionRoutes } from "./modules/collections/routes.js";
+import { bookRoutes } from "./modules/books/routes.js";
+import { recommendationRoutes } from "./modules/recommendations/routes.js";
 import { AppError } from "./lib/errors.js";
 
 const app = Fastify({
@@ -44,6 +47,9 @@ await app.register(authPlugin);
 await app.register(async (api) => {
   await api.register(authRoutes);
   await api.register(postRoutes);
+  await api.register(collectionRoutes);
+  await api.register(bookRoutes);
+  await api.register(recommendationRoutes);
 }, { prefix: "/api/v1" });
 
 app.get("/health", async () => ({ status: "ok", uptime: process.uptime() }));
