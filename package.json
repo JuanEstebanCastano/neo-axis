@@ -5,7 +5,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "docker compose up --build",
-    "db:up": "dbmate --migrations-dir ./db/migrations up",
+    "db:up": "dbmate --migrations-dir ./db/migrations --no-dump-schema up",
     "db:down": "dbmate --migrations-dir ./db/migrations down",
     "db:new": "dbmate --migrations-dir ./db/migrations new",
     "db:types": "kysely-codegen --dialect postgres --camel-case --default-schema app --out-file packages/db/src/schema.d.ts",
