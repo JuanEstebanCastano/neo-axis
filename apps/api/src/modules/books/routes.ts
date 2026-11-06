@@ -18,8 +18,37 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { notFound } from "../../lib/errors.js";
 import { presignDownload } from "../../lib/storage.js";
+import { listBooks, getBook, setShelf } from "./service.js";
 
 export const bookRoutes: FastifyPluginAsync = async (app) => {
+  // Catálogo de libros.
+  app.get("/books", async (req) => {
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(req.query);
+    const items = await listBooks(app.db, q.limit);
+    return { items };
+  });
+
+  // Detalle de un libro (autores, archivos, rating).
+  app.get("/books/:id", async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const book = await getBook(app.db, id);
+    return { book };
+  });
+
+  // Estantería del usuario: marcar quiero leer / leyendo / leído.
+  app.put("/books/:id/shelf", async (req) => {
+    const session = app.requireAuth(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z
+      .object({
+        status: z.enum(["want", "reading", "read"]),
+        progress: z.coerce.number().int().min(0).max(100).default(0),
+      })
+      .parse(req.body);
+    await setShelf(app.db, session.userId, id, body.status, body.progress);
+    return { ok: true };
+  });
+
   // Formatos disponibles de un libro (metadato público).
   app.get("/books/:bookId/files", async (req) => {
     const { bookId } = z.object({ bookId: z.string().uuid() }).parse(req.params);
