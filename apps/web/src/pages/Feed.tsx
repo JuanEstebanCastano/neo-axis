@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
 import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState } from "../components/ui";
+import { Icon } from "../components/Icon";
 import { api, type Post } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -46,6 +47,63 @@ function Composer() {
   );
 }
 
+/**
+ * Tarjeta de publicación que se expande en el mismo feed. Al abrir, carga el
+ * contenido completo (bodyMarkdown) de forma diferida con GET /posts/:id.
+ */
+function PostCard({ post }: { post: Post }) {
+  const [open, setOpen] = useState(false);
+  const detail = useQuery({
+    queryKey: ["post", post.id],
+    queryFn: () => api.post(post.id),
+    enabled: open,
+  });
+  const body = detail.data?.post.bodyMarkdown ?? null;
+  const toggle = () => setOpen((v) => !v);
+
+  return (
+    <Surface
+      className={`post post--clickable ${open ? "post--open" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={toggle}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+      }}
+    >
+      <div className="post__meta">
+        <span className="post__av">{initials(post.authorDisplayName)}</span>
+        <strong style={{ color: "var(--text-2)" }}>{post.authorDisplayName}</strong>
+        <span className="post__dot" />
+        <span>@{post.authorUsername}</span>
+        <span className="post__dot" />
+        <span>{timeAgo(post.createdAt)}</span>
+      </div>
+      {post.title && <h3>{post.title}</h3>}
+
+      {open ? (
+        detail.isLoading ? (
+          <Skeleton h={38} />
+        ) : detail.isError ? (
+          <p className="field__error">No se pudo cargar el contenido.</p>
+        ) : body ? (
+          <p className="post__body">{body}</p>
+        ) : (
+          <p className="post__body" style={{ color: "var(--text-3)" }}>Esta publicación no tiene contenido adicional.</p>
+        )
+      ) : (
+        post.excerpt && <p>{post.excerpt}</p>
+      )}
+
+      <span className="post__toggle">
+        <Icon name="arrow" size={15} />
+        {open ? "Mostrar menos" : "Leer más"}
+      </span>
+    </Surface>
+  );
+}
+
 export function Feed() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -70,18 +128,7 @@ export function Feed() {
       ) : (
         <div className="stack">
           {data.items.map((p: Post) => (
-            <Surface key={p.id} className="post">
-              <div className="post__meta">
-                <span className="post__av">{initials(p.authorDisplayName)}</span>
-                <strong style={{ color: "var(--text-2)" }}>{p.authorDisplayName}</strong>
-                <span className="post__dot" />
-                <span>@{p.authorUsername}</span>
-                <span className="post__dot" />
-                <span>{timeAgo(p.createdAt)}</span>
-              </div>
-              {p.title && <h3>{p.title}</h3>}
-              {p.excerpt && <p>{p.excerpt}</p>}
-            </Surface>
+            <PostCard key={p.id} post={p} />
           ))}
         </div>
       )}

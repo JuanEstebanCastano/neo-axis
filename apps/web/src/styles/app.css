@@ -177,6 +177,13 @@
 .post h3 { font-size: 18px; }
 .post p { color: var(--text-2); font-size: 14.5px; }
 .post__av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+.post--clickable { cursor: pointer; transition: box-shadow 0.15s var(--ease); }
+.post--clickable:hover { box-shadow: var(--nm-raised); }
+.post--clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.post__body { white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; line-height: 1.65; }
+.post__toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 12.5px; font-weight: 700; }
+.post__toggle svg { transition: transform 0.2s var(--ease); }
+.post--open .post__toggle svg { transform: rotate(90deg); }
 
 /* Colecciones */
 .coll { padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; min-height: 150px; }

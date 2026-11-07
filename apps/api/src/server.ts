@@ -28,7 +28,7 @@ import { bookRoutes } from "./modules/books/routes.js";
 import { recommendationRoutes } from "./modules/recommendations/routes.js";
 import { snippetRoutes } from "./modules/snippets/routes.js";
 import { ZodError } from "zod";
-import { AppError } from "./lib/errors.js";
+import { AppError, badRequest } from "./lib/errors.js";
 import { prettifyZodError } from "./lib/validation.js";
 import { makeOriginMatcher, VERCEL_PREVIEW_REGEX } from "./lib/origins.js";
 
@@ -38,6 +38,24 @@ const app = Fastify({
     : { level: "debug", transport: { target: "pino-pretty" } },
   trustProxy: true,
   genReqId: () => crypto.randomUUID(),
+});
+
+// Cuerpo JSON vacío permitido. Varios POST no mandan body (p. ej. /auth/logout o
+// /recomendaciones/reindex), pero el cliente igual envía Content-Type: application/json.
+// El parser por defecto de Fastify lanza "Body cannot be empty when content-type is
+// set to 'application/json'", que el error handler convertía en 500 (de ahí que el
+// botón "Salir" no hiciera nada). Con esto, un body vacío se interpreta como undefined
+// y un JSON mal formado devuelve 400 limpio.
+app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+  if (body === "" || body == null) {
+    done(null, undefined);
+    return;
+  }
+  try {
+    done(null, JSON.parse(body as string));
+  } catch {
+    done(badRequest("JSON inválido"), undefined);
+  }
 });
 
 await app.register(helmet, { contentSecurityPolicy: isProduction });

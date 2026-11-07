@@ -14,9 +14,16 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  // Solo declaramos JSON cuando efectivamente mandamos un cuerpo. Un POST sin body
+  // (p. ej. logout) con Content-Type: application/json hace que el servidor rechace
+  // el cuerpo vacío.
+  const hasBody = opts.body != null;
   const res = await fetch(BASE + path, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
+    headers: {
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      ...(opts.headers ?? {}),
+    },
     ...opts,
   });
   if (res.status === 204) return null as T;
@@ -62,6 +69,10 @@ export const api = {
   logout: () => req<null>("/auth/logout", { method: "POST" }),
 
   feed: (limit = 20) => req<{ items: Post[]; nextCursor: string | null }>(`/posts?limit=${limit}`),
+  // Detalle de una publicación: incluye el cuerpo completo (bodyMarkdown) para
+  // expandir la tarjeta en el feed.
+  post: (id: string) =>
+    req<{ post: { id: string; title: string | null; excerpt: string | null; bodyMarkdown: string | null } }>(`/posts/${id}`),
   createPost: (b: { title?: string; bodyMarkdown?: string }) =>
     req<{ post: Post }>("/posts", { method: "POST", body: JSON.stringify(b) }),
 

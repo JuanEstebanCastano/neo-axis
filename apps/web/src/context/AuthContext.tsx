@@ -27,7 +27,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ready,
     login: async (b) => { const r = await api.login(b); setUser(r.user); },
     register: async (b) => { const r = await api.register(b); setUser(r.user); },
-    logout: async () => { await api.logout(); setUser(null); },
+    logout: async () => {
+      // Aunque el servidor falle, cerramos sesión en el cliente: el botón "Salir"
+      // siempre debe surtir efecto para la persona.
+      try { await api.logout(); } catch { /* ignoramos el error del servidor */ }
+      setUser(null);
+    },
   };
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
