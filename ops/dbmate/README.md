@@ -62,3 +62,26 @@ pnpm db:new nombre=lo_que_sea      # crea db/migrations/<ts>_lo_que_sea.sql
 # editás up/down y luego:
 pnpm db:up
 ```
+
+## Estado de `public.schema_migrations` en Supabase (y cómo revertir)
+
+Este trabajo **escribió en la base de producción** (creó `public.schema_migrations`,
+insertó las 4 versiones existentes y `dbmate up` agregó `20261106000001`). git NO
+revierte eso. Antes de este trabajo la tabla **no existía**.
+
+**Consultar el estado actual:**
+```sql
+SELECT version FROM public.schema_migrations ORDER BY version;
+-- Esperado: 20261015000001, 20261015000002, 20261105120001, 20261105120002, 20261106000001
+```
+
+**Revertir a como estaba (si descartás la rama `feat/hybrid-vercel`):**
+```sql
+-- Borra SOLO el bookkeeping de dbmate. El esquema real (tablas y la función
+-- app.uuidv7()) queda intacto: se aplicó por el SQL consolidado vía MCP, no por
+-- dbmate, así que esto no toca datos ni estructura.
+DROP TABLE IF EXISTS public.schema_migrations;
+```
+
+> La migración `20261106000001_uuidv7_compat` solo hizo `CREATE OR REPLACE` de una
+> función que ya existía (idempotente): no hay nada que deshacer en el esquema.
