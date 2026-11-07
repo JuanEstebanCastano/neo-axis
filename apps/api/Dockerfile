@@ -8,8 +8,10 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY packages/db/package.json ./packages/db/
 COPY apps/api/package.json ./apps/api/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @neoaxis/api...
+# Sin cache mount de BuildKit: Railway exige prefijar el id con el UUID del
+# servicio, lo que rompería el build local y no sobrevive a recrear el servicio.
+# La capa de Docker ya cachea este RUN mientras no cambie el lockfile.
+RUN pnpm install --frozen-lockfile --filter @neoaxis/api...
 
 FROM deps AS build
 COPY tsconfig.base.json ./
