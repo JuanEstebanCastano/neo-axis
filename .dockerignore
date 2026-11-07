@@ -1,0 +1,16 @@
+# Fuera del contexto de build (velocidad + correcto: los COPY de apps/* y
+# packages/* NO deben arrastrar node_modules/dist, y .env no entra a la imagen).
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+!.env.example
+*.log
+.pnpm-store
+.vercel
+.agents
+.claude
+.impeccable
+packages/db/src/schema.d.ts

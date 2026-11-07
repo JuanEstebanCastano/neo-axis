@@ -61,26 +61,17 @@ VITE_API_URL=            # ⏳ PENDIENTE hasta tener la URL pública de la api e
 
 ---
 
-## ⚠️ DATABASE_URL + `sslrootcert`: NO funciona tal cual en Railway
+## DATABASE_URL + `sslrootcert` (opción A aplicada)
 
-El `DATABASE_URL` que usamos lleva `...&sslmode=verify-full&sslrootcert=ops/certs/supabase-root-2021-ca.crt`,
-una **ruta relativa al repo**. En Railway el contenedor corre desde `/app` con **solo
-el paquete desplegado** (`pnpm deploy`): **`ops/certs/` NO está en la imagen**, así que
-esa ruta no existe y el TLS fallaría.
+En Railway el contenedor corre desde `/app` con solo el paquete desplegado, así que
+una ruta **relativa** `ops/certs/…` no existiría. **Ya resuelto (opción A):** ambos
+Dockerfiles (`apps/api`, `apps/worker`) copian la CA a `/app/certs/supabase-ca.crt`.
 
-Dos opciones (elegí una):
-
-- **A) Segura (recomendada):** incluir la CA en la imagen y usar **ruta absoluta**.
-  Requiere 1 línea en `apps/api/Dockerfile` y `apps/worker/Dockerfile`:
-  ```dockerfile
-  COPY ops/certs/supabase-root-2021-ca.crt /app/certs/supabase-ca.crt
-  ```
-  y en `DATABASE_URL`: `...&sslmode=verify-full&sslrootcert=/app/certs/supabase-ca.crt`.
-  *(No lo apliqué todavía: toca los Dockerfiles. Decime y lo hago.)*
-
-- **B) Simple (tu riesgo):** `...&sslmode=no-verify` → conexión **cifrada** pero **sin
-  verificar** el certificado. No toca Dockerfiles. Es la que se usa habitualmente en
-  PaaS que no permiten montar archivos.
+→ En el `DATABASE_URL` de Railway usá la **ruta absoluta**:
+```
+postgres://postgres.<ref>:[PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=/app/certs/supabase-ca.crt
+```
 
 > No uses `sslmode=require`: con el driver `pg` actual se comporta como verify y falla
-> con "self-signed certificate in chain".
+> con "self-signed certificate in chain". (Alternativa de emergencia si algún día no
+> podés bakear la CA: `sslmode=no-verify`, cifrado pero sin verificar el cert.)
