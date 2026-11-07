@@ -50,7 +50,7 @@ SELECT bucket_name, count(*) FROM app.media_assets GROUP BY bucket_name;
 SELECT id, bucket_name, object_key FROM app.media_assets LIMIT 5;
 ```
 
-Después corré `ops/storage/check-s3.mjs` contra Supabase (ver abajo) y probá una
+Después corré `ops/storage/check-s3.cjs` contra Supabase (ver abajo) y probá una
 descarga real por la API.
 
 ## Si el bucket cambia de nombre
@@ -65,5 +65,18 @@ Si en Supabase el bucket NO se llama igual que en MinIO, tenés dos opciones:
 
 ## Validar el endpoint S3 de Supabase ANTES de tocar el VPS
 
-Ver `ops/storage/check-s3.mjs` (lista, sube, firma, descarga y borra un archivo de
-prueba). Falla indicando cuál de los pasos rompió.
+`ops/storage/check-s3.cjs` lista el bucket, sube un archivo, genera una URL firmada,
+la descarga y borra el archivo. Falla indicando cuál de los 5 pasos rompió.
+
+Con las `S3_*` de Supabase cargadas en el `.env` (desde la raíz del repo):
+
+```bash
+# Git Bash / Linux
+NODE_PATH=apps/api/node_modules node --env-file=.env ops/storage/check-s3.cjs
+
+# PowerShell
+$env:NODE_PATH="apps/api/node_modules"; node --env-file=.env ops/storage/check-s3.cjs
+```
+
+`NODE_PATH` apunta a `apps/api/node_modules` porque ahí está `@aws-sdk` (no hay
+build ni tsx de por medio; el script es CommonJS).
