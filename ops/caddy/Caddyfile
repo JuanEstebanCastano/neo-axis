@@ -1,0 +1,12 @@
+# Reverse-proxy de la API con TLS automático (Let's Encrypt).
+# Caddy, al declarar un dominio, obtiene el certificado solo y redirige
+# HTTP -> HTTPS automáticamente.
+#
+# IMPORTANTE: Caddy NO agrega cabeceras CORS. El CORS lo pone SOLO Fastify
+# (apps/api/src/server.ts). No añadir aquí ninguna directiva `header` de CORS
+# para no duplicarlas. reverse_proxy reenvía Origin y setea X-Forwarded-*
+# (que Fastify usa con trustProxy).
+
+API_DOMAIN_PLACEHOLDER {
+	reverse_proxy api:3000
+}

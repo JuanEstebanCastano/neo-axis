@@ -49,7 +49,7 @@ export function Discover() {
               <div className="reco" key={h.entityId}>
                 <span className="reco__rank">{i + 1}</span>
                 <span className="reco__t">{h.title ?? "—"}</span>
-                <span className="badge badge--accent"><Icon name="spark" size={13} />{(100 - h.distance * 100).toFixed(0)}% afín</span>
+                <span className="badge badge--accent"><Icon name="spark" size={13} />{Math.max(0, Math.round((1 - h.distance) * 100))}% afín</span>
               </div>
             ))}
           </div>

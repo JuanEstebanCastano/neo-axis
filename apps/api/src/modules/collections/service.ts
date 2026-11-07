@@ -15,6 +15,7 @@
 import type { Database } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
 import { notFound, forbidden, badRequest } from "../../lib/errors.js";
+import { canViewPost } from "../../lib/rbac.js";
 
 export type CollectionItemType = "book" | "repository" | "snippet" | "post";
 
@@ -52,6 +53,19 @@ export interface AddItemInput {
   sortOrder?: number | undefined;
 }
 
+/**
+ * Mapea el tipo de ítem a las cuatro columnas polimórficas: la del tipo lleva
+ * el id, las otras tres van en null (lo que exige el CHECK de la tabla).
+ */
+export function itemColumns(itemType: CollectionItemType, targetId: string) {
+  return {
+    bookId: itemType === "book" ? targetId : null,
+    repositoryId: itemType === "repository" ? targetId : null,
+    snippetId: itemType === "snippet" ? targetId : null,
+    postId: itemType === "post" ? targetId : null,
+  };
+}
+
 async function assertOwner(db: Database, collectionId: string, actorId: string) {
   const col = await db
     .selectFrom("collections")
@@ -72,15 +86,31 @@ export async function addCollectionItem(db: Database, input: AddItemInput) {
     : input.postId;
   if (!targetId) throw badRequest(`Falta el id del ítem para el tipo '${input.itemType}'`);
 
+  // Validar que el recurso existe (evita el 500 por violación de FK y el uso del
+  // endpoint como oráculo de UUIDs) y, para posts, que el actor puede verlo.
+  if (input.itemType === "post") {
+    const ok = await canViewPost(db, targetId, input.actorId);
+    if (!ok) throw notFound("El post no existe o no tenés acceso");
+  } else if (input.itemType === "book") {
+    const b = await db.selectFrom("books").select("id")
+      .where("id", "=", targetId).where("deletedAt", "is", null).executeTakeFirst();
+    if (!b) throw notFound("El libro no existe");
+  } else if (input.itemType === "repository") {
+    const r = await db.selectFrom("githubRepositories").select("id")
+      .where("id", "=", targetId).executeTakeFirst();
+    if (!r) throw notFound("El repositorio no existe");
+  } else {
+    const s = await db.selectFrom("postSnippets").select("id")
+      .where("id", "=", targetId).executeTakeFirst();
+    if (!s) throw notFound("El snippet no existe");
+  }
+
   return db
     .insertInto("collectionItems")
     .values({
       collectionId: input.collectionId,
       itemType: input.itemType,
-      bookId: input.itemType === "book" ? targetId : null,
-      repositoryId: input.itemType === "repository" ? targetId : null,
-      snippetId: input.itemType === "snippet" ? targetId : null,
-      postId: input.itemType === "post" ? targetId : null,
+      ...itemColumns(input.itemType, targetId),
       note: input.note ?? null,
       sortOrder: input.sortOrder ?? 0,
     })
@@ -149,16 +179,20 @@ export async function getCollection(db: Database, id: string, userId: string | n
 
 export async function listCollections(
   db: Database,
-  opts: { ownerId?: string | undefined; limit: number },
+  opts: { ownerId?: string | undefined; requesterId?: string | null | undefined; limit: number },
 ) {
   let q = db
     .selectFrom("collections")
     .select(["id", "ownerId", "title", "slug", "description", "visibility", "createdAt"])
     .where("deletedAt", "is", null);
 
-  q = opts.ownerId
-    ? q.where("ownerId", "=", opts.ownerId)
-    : q.where("visibility", "=", "community");
+  if (opts.ownerId) {
+    q = q.where("ownerId", "=", opts.ownerId);
+    // Las colecciones de OTRO usuario solo se listan si son públicas.
+    if (opts.ownerId !== opts.requesterId) q = q.where("visibility", "=", "community");
+  } else {
+    q = q.where("visibility", "=", "community");
+  }
 
   return q.orderBy("createdAt", "desc").limit(opts.limit).execute();
 }

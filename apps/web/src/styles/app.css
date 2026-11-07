@@ -228,6 +228,15 @@
 }
 .seg__opt.is-active { color: var(--accent); box-shadow: var(--nm-raised-sm); }
 
+/* Snippets */
+.code {
+  margin: 4px 0 0; padding: 16px 18px; border-radius: var(--radius-sm);
+  box-shadow: var(--nm-inset-sm); background: var(--surface);
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; line-height: 1.6;
+  color: var(--text); overflow-x: auto; max-height: 340px; overflow-y: auto;
+  white-space: pre; tab-size: 2;
+}
+
 /* Recomendaciones */
 .reco { display: flex; align-items: center; gap: 13px; padding: 13px 16px; border-radius: var(--radius-sm); box-shadow: var(--nm-flat); }
 .reco__rank { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; color: var(--accent); box-shadow: var(--nm-inset-sm); font-size: 13px; }

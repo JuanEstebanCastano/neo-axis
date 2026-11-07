@@ -11,6 +11,7 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 04 | [Problemas comunes](04-problemas-comunes.md) | Cuando algo se rompe |
 | 05 | [Decisiones](05-decisiones.md) | Por qué se eligió cada herramienta |
 | 06 | [Propuesta de evolución](06-propuesta-evolucion.md) | Hacia dónde crece: colecciones, biblioteca real y recomendaciones |
+| 07 | [Despliegue](07-despliegue.md) | Subir API y frontend a producción |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.

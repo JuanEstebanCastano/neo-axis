@@ -9,6 +9,7 @@ const NAV: { to: string; icon: IconName; label: string }[] = [
   { to: "/", icon: "feed", label: "Feed" },
   { to: "/colecciones", icon: "collections", label: "Colecciones" },
   { to: "/biblioteca", icon: "library", label: "Biblioteca" },
+  { to: "/snippets", icon: "snippet", label: "Snippets" },
   { to: "/descubrir", icon: "spark", label: "Descubrir" },
 ];
 

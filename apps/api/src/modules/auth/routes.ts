@@ -19,17 +19,7 @@ import { issueSession, revokeSession } from "../../lib/session.js";
 import { badRequest, conflict, unauthorized } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 
-const registerBody = z.object({
-  username: z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9_-]{2,39}$/, "Username inválido"),
-  displayName: z.string().min(1).max(120),
-  email: z.string().email().max(320),
-  password: z.string().min(12).max(200),
-});
-
-const loginBody = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
+import { registerBody, loginBody } from "./schemas.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/auth/register", async (req, reply) => {

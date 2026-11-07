@@ -78,12 +78,20 @@ export async function setShelf(
   userId: string,
   bookId: string,
   status: ShelfStatus,
-  progress: number,
+  progress?: number | null,
 ) {
+  // Si no mandan progreso: 'read' implica 100%; para los demás, el default 0 al
+  // insertar, pero en un update se CONSERVA el progreso previo (no se pisa).
+  const insertProgress = progress ?? (status === "read" ? 100 : 0);
   await sql`
     INSERT INTO app.book_shelves (user_id, book_id, status, progress)
-    VALUES (${userId}::uuid, ${bookId}::uuid, ${status}, ${progress})
+    VALUES (${userId}::uuid, ${bookId}::uuid, ${status}, ${insertProgress})
     ON CONFLICT (user_id, book_id) DO UPDATE
-      SET status = EXCLUDED.status, progress = EXCLUDED.progress, updated_at = now()
+      SET status = EXCLUDED.status,
+          progress = COALESCE(
+            ${progress ?? null}::int,
+            CASE WHEN EXCLUDED.status = 'read' THEN 100 ELSE app.book_shelves.progress END
+          ),
+          updated_at = now()
   `.execute(db);
 }

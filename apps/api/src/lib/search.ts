@@ -85,19 +85,25 @@ export async function search(
   const limit = Math.min(opts.limit ?? 20, 100);
 
   const { rows } = await sql<SearchHit>`
-    SELECT entity_type AS "entityType",
-           entity_id::text AS "entityId",
-           title,
+    SELECT sd.entity_type AS "entityType",
+           sd.entity_id::text AS "entityId",
+           sd.title,
            GREATEST(
-             ts_rank(search_vector, websearch_to_tsquery('spanish', ${query})),
-             similarity(coalesce(title, ''), ${query})
+             ts_rank(sd.search_vector, websearch_to_tsquery('spanish', ${query})),
+             similarity(coalesce(sd.title, ''), ${query})
            ) AS rank
-    FROM app.search_documents
+    FROM app.search_documents sd
+    LEFT JOIN app.posts p ON p.id = sd.entity_id AND sd.entity_type = 'post'
     WHERE (
-      search_vector @@ websearch_to_tsquery('spanish', ${query})
-      OR coalesce(title, '') % ${query}
+      sd.search_vector @@ websearch_to_tsquery('spanish', ${query})
+      OR coalesce(sd.title, '') % ${query}
     )
-    ${opts.entityType ? sql`AND entity_type = ${opts.entityType}` : sql``}
+    -- Sólo contenido visible: los posts restringidos, ocultos o borrados no salen.
+    AND (
+      sd.entity_type <> 'post'
+      OR (p.deleted_at IS NULL AND p.status = 'published' AND p.hidden_at IS NULL AND p.visibility = 'community')
+    )
+    ${opts.entityType ? sql`AND sd.entity_type = ${opts.entityType}` : sql``}
     ORDER BY rank DESC
     LIMIT ${limit}
   `.execute(db);
@@ -125,14 +131,19 @@ export async function recommendByEmbedding(
   const limit = Math.min(opts.limit ?? 10, 50);
 
   const { rows } = await sql<RecoHit>`
-    SELECT entity_type AS "entityType",
-           entity_id::text AS "entityId",
-           title,
-           embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector AS distance
-    FROM app.search_documents
-    WHERE embedding IS NOT NULL
-      ${opts.excludeEntityId ? sql`AND entity_id <> ${opts.excludeEntityId}::uuid` : sql``}
-    ORDER BY embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector
+    SELECT sd.entity_type AS "entityType",
+           sd.entity_id::text AS "entityId",
+           sd.title,
+           sd.embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector AS distance
+    FROM app.search_documents sd
+    LEFT JOIN app.posts p ON p.id = sd.entity_id AND sd.entity_type = 'post'
+    WHERE sd.embedding IS NOT NULL
+      AND (
+        sd.entity_type <> 'post'
+        OR (p.deleted_at IS NULL AND p.status = 'published' AND p.hidden_at IS NULL AND p.visibility = 'community')
+      )
+      ${opts.excludeEntityId ? sql`AND sd.entity_id <> ${opts.excludeEntityId}::uuid` : sql``}
+    ORDER BY sd.embedding OPERATOR(extensions.<=>) ${vec}::extensions.vector
     LIMIT ${limit}
   `.execute(db);
 

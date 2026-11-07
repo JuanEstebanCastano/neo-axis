@@ -2,7 +2,10 @@
  * Cliente de la API. Mismo origen (proxy de Vite), cookie de sesión incluida.
  */
 
-const BASE = "/api/v1";
+// En desarrollo, BASE queda relativo ("/api/v1") y usa el proxy de Vite.
+// En producción, definí VITE_API_URL (p. ej. https://api.midominio.com).
+// Se normaliza quitando la barra final para no generar "//api/v1".
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "") + "/api/v1";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -45,6 +48,10 @@ export interface Book {
   files?: { id: string; format: string; accessLevel: string }[];
 }
 export interface RecoHit { entityType: string; entityId: string; title: string | null; distance: number }
+export interface Snippet {
+  id: string; postId: string; title: string; language: string; filename: string | null;
+  sourceCode: string; createdAt: string; authorUsername: string; authorDisplayName: string;
+}
 
 export const api = {
   me: () => req<{ user: User; permissions: string[] }>("/auth/me"),
@@ -82,4 +89,8 @@ export const api = {
     return req<{ hits: RecoHit[] }>(`/recomendaciones?${qs.toString()}`);
   },
   reindex: () => req<{ indexed: number }>("/recomendaciones/reindex", { method: "POST" }),
+
+  snippets: () => req<{ items: Snippet[] }>("/snippets"),
+  createSnippet: (b: { title: string; language: string; sourceCode: string; filename?: string }) =>
+    req<{ snippet: Snippet }>("/snippets", { method: "POST", body: JSON.stringify(b) }),
 };

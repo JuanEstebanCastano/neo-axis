@@ -21,22 +21,7 @@ import {
 import { badRequest } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 
-const createBody = z.object({
-  title: z.string().min(1).max(240),
-  slug: z.string().max(280).nullish(),
-  description: z.string().nullish(),
-  visibility: z.enum(["community", "restricted"]).default("community"),
-});
-
-const itemBody = z.object({
-  itemType: z.enum(["book", "repository", "snippet", "post"]),
-  bookId: z.string().uuid().optional(),
-  repositoryId: z.string().uuid().optional(),
-  snippetId: z.string().uuid().optional(),
-  postId: z.string().uuid().optional(),
-  note: z.string().max(500).nullish(),
-  sortOrder: z.coerce.number().int().min(0).max(32767).optional(),
-});
+import { createBody, itemBody } from "./schemas.js";
 
 export const collectionRoutes: FastifyPluginAsync = async (app) => {
   // Listado: por defecto las de la comunidad; con ?owner=<uuid> las de alguien.
@@ -47,7 +32,11 @@ export const collectionRoutes: FastifyPluginAsync = async (app) => {
         limit: z.coerce.number().int().min(1).max(50).default(20),
       })
       .parse(req.query);
-    const items = await listCollections(app.db, { ownerId: q.owner, limit: q.limit });
+    const items = await listCollections(app.db, {
+      ownerId: q.owner,
+      requesterId: req.session?.userId ?? null,
+      limit: q.limit,
+    });
     return { items };
   });
 
