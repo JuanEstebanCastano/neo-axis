@@ -37,14 +37,29 @@ export function Shell({
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand__mark">N</span>
-          <span>
-            <span className="brand__name">Neo Axis</span>
-            <br />
-            <span className="brand__sub">libros + código</span>
-          </span>
-        </div>
+        {user ? (
+          <Link to="/perfil" className="brand brand--user" title="Mi perfil y cuenta">
+            <span className="brand__av">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={`Avatar de ${user.displayName || user.username}`} referrerPolicy="no-referrer" />
+              ) : (
+                <span className="brand__ini">{(user.displayName || user.username).trim().slice(0, 1).toUpperCase()}</span>
+              )}
+            </span>
+            <span className="brand__meta">
+              <span className="brand__name">{user.displayName || user.username}</span>
+              <span className="brand__sub">@{user.username}</span>
+            </span>
+          </Link>
+        ) : (
+          <Link to="/" className="brand">
+            <span className="brand__mark">N</span>
+            <span className="brand__meta">
+              <span className="brand__name">Neo Axis</span>
+              <span className="brand__sub">libros + código</span>
+            </span>
+          </Link>
+        )}
 
         <nav className="nav">
           {NAV.map((n) => (
@@ -76,7 +91,11 @@ export function Shell({
             <span className="mobile-theme"><ThemeSwitch /></span>
             {user ? (
               <Link to="/perfil" className="usertag" title="Ver mi perfil">
-                <span className="usertag__av"><Icon name="user" size={16} /></span>
+                <span className="usertag__av">
+                  {user.avatarUrl
+                    ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                    : <Icon name="user" size={16} />}
+                </span>
                 <span className="usertag__name">@{user.username}</span>
               </Link>
             ) : null}

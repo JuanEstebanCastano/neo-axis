@@ -36,7 +36,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 // ── Tipos ──
-export interface User { id: string; username: string }
+export interface User { id: string; username: string; displayName: string; avatarUrl: string | null }
 export interface Post {
   id: string; title: string | null; slug: string | null; excerpt: string | null;
   createdAt: string; authorUsername: string; authorDisplayName: string; authorAvatarUrl: string | null;

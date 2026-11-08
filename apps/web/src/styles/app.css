@@ -115,14 +115,24 @@
   position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; gap: 10px; padding: 24px 18px;
 }
-.brand { display: flex; align-items: center; gap: 12px; padding: 8px 10px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 8px 10px 20px; text-decoration: none; color: inherit; }
+.brand--user { padding: 10px; margin-bottom: 12px; border-radius: var(--radius-sm); box-shadow: var(--nm-flat); transition: box-shadow 0.15s var(--ease); }
+.brand--user:hover { box-shadow: var(--nm-raised-sm); }
+.brand--user:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand__mark {
   width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 20px;
-  box-shadow: var(--nm-raised-sm);
+  box-shadow: var(--nm-raised-sm); flex-shrink: 0;
 }
-.brand__name { font-weight: 800; font-size: 17px; letter-spacing: -0.03em; }
-.brand__sub { font-size: 11.5px; color: var(--text-3); font-weight: 600; }
+.brand__av {
+  width: 42px; height: 42px; border-radius: 13px; overflow: hidden; flex-shrink: 0;
+  display: grid; place-items: center; background: var(--accent-soft); box-shadow: var(--nm-raised-sm);
+}
+.brand__av img { width: 100%; height: 100%; object-fit: cover; }
+.brand__ini { font-weight: 800; font-size: 19px; color: var(--accent); }
+.brand__meta { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.brand__name { font-weight: 800; font-size: 17px; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand__sub { font-size: 11.5px; color: var(--text-3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .nav { display: flex; flex-direction: column; gap: 8px; }
 .nav__item {
@@ -145,7 +155,8 @@
 
 .mobile-theme { display: none; }
 .usertag { display: flex; align-items: center; gap: 9px; padding: 7px 14px 7px 8px; border-radius: 999px; box-shadow: var(--nm-flat); }
-.usertag__av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.usertag__av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); overflow: hidden; }
+.usertag__av img { width: 100%; height: 100%; object-fit: cover; }
 .usertag__name { font-weight: 700; font-size: 13.5px; }
 
 /* interruptor de tema */

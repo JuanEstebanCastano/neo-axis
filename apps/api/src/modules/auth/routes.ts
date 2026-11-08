@@ -84,7 +84,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.setSessionCookie(reply, session.token, session.expiresAt);
-    return reply.code(201).send({ user });
+    return reply.code(201).send({
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: null,
+      },
+    });
   });
 
   app.post("/auth/login", { config: { rateLimit: { max: 10, timeWindow: "5 minutes" } } }, async (req, reply) => {
@@ -95,7 +102,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const row = await app.db
       .selectFrom("users as u")
       .innerJoin("userCredentials as c", "c.userId", "u.id")
-      .select(["u.id as id", "u.username as username", "u.status as status", "c.passwordHash as passwordHash"])
+      .select([
+        "u.id as id", "u.username as username", "u.displayName as displayName",
+        "u.avatarUrl as avatarUrl", "u.status as status", "c.passwordHash as passwordHash",
+      ])
       .where((eb) => eb(eb.fn("lower", ["u.email"]), "=", email.toLowerCase()))
       .where("u.deletedAt", "is", null)
       .executeTakeFirst();
@@ -115,7 +125,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.setSessionCookie(reply, session.token, session.expiresAt);
-    return { user: { id: row.id, username: row.username } };
+    return { user: { id: row.id, username: row.username, displayName: row.displayName, avatarUrl: row.avatarUrl } };
   });
 
   app.post("/auth/logout", async (req, reply) => {
@@ -126,8 +136,19 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/auth/me", async (req) => {
     const session = app.requireAuth(req);
+    // Traemos el nombre para mostrar y el avatar para la barra lateral.
+    const profile = await app.db
+      .selectFrom("users")
+      .select(["id", "username", "displayName", "avatarUrl"])
+      .where("id", "=", session.userId)
+      .executeTakeFirst();
     return {
-      user: { id: session.userId, username: session.username },
+      user: profile ?? {
+        id: session.userId,
+        username: session.username,
+        displayName: session.username,
+        avatarUrl: null,
+      },
       permissions: [...req.permissions],
     };
   });
