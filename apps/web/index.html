@@ -11,16 +11,9 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <script>
-      // Fija el tema antes de pintar para evitar el parpadeo claro/oscuro.
-      (function () {
-        try {
-          var t = localStorage.getItem("neoaxis-theme");
-          if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-          document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {}
-      })();
-    </script>
+    <!-- Fija el tema antes de pintar (anti-parpadeo). Archivo externo, no inline:
+         el CSP (default-src 'self') bloquea scripts inline. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
