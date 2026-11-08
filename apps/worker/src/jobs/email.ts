@@ -128,14 +128,23 @@ function render(templateCode: string, payload: Record<string, unknown>) {
   return tpl(payload);
 }
 
+export interface EmailSendError {
+  id: string;
+  recipientEmail: string;
+  templateCode: string;
+  attempts: number;
+  error: string;
+}
+
 export async function processEmailBatch(
   db: Database,
   mailer: Transporter,
   opts: EmailJobOptions,
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; errors: EmailSendError[] }> {
   const batch = await claimBatch(db, opts.batchSize);
   let sent = 0;
   let failed = 0;
+  const errors: EmailSendError[] = [];
 
   for (const email of batch) {
     try {
@@ -144,10 +153,21 @@ export async function processEmailBatch(
       await markSent(db, email.id);
       sent += 1;
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       await markRetryOrFail(db, email, err, opts.maxAttempts);
+      // Se devuelve el error para que el entrypoint lo escriba en el log: sin
+      // esto, un fallo de SMTP solo quedaba en app.email_notification_queue.last_error
+      // y era invisible desde los logs del worker.
+      errors.push({
+        id: email.id,
+        recipientEmail: email.recipientEmail,
+        templateCode: email.templateCode,
+        attempts: email.attempts,
+        error: message,
+      });
       failed += 1;
     }
   }
 
-  return { sent, failed };
+  return { sent, failed, errors };
 }

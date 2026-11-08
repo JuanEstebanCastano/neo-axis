@@ -64,7 +64,19 @@ while (running) {
       from: env.MAIL_FROM,
     });
 
-    if (result.sent || result.failed) log("Lote de correos procesado", result);
+    if (result.sent || result.failed) log("Lote de correos procesado", { sent: result.sent, failed: result.failed });
+
+    // Cada fallo de envío se escribe en el log con su causa real (p. ej. el
+    // error de SMTP). Antes solo veíamos "failed: N" sin el porqué.
+    for (const e of result.errors) {
+      log("Fallo al enviar correo", {
+        emailId: e.id,
+        to: e.recipientEmail,
+        template: e.templateCode,
+        attempts: e.attempts,
+        error: e.error,
+      });
+    }
 
     // Mantenimiento cada ~1h asumiendo poll de 5s.
     if (++ticks % 720 === 0) {
