@@ -12,36 +12,63 @@
  */
 
 import { createDb, assertDatabaseReady } from "@neoaxis/db";
-import nodemailer from "nodemailer";
 import { z } from "zod";
 import { processEmailBatch } from "./jobs/email.js";
+import { createSmtpMailer, createMailerSendMailer, parseMailFrom, type Mailer } from "./lib/mailer.js";
 import { purgeExpiredSessions, purgeSoftDeletedPosts, purgeConsumedTokens } from "./jobs/maintenance.js";
 
 const env = z.object({
   DATABASE_URL: z.string().url(),
-  SMTP_HOST: z.string(),
-  SMTP_PORT: z.coerce.number().int().positive(),
+  // Elige el transporte de correo. "mailersend" usa la API HTTP (puerto 443),
+  // recomendada en Railway porque bloquea SMTP saliente en planes bajos.
+  MAIL_TRANSPORT: z.enum(["smtp", "mailersend"]).default("smtp"),
+  MAIL_FROM: z.string(),
+  // SMTP (requeridas solo con MAIL_TRANSPORT=smtp)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
-  MAIL_FROM: z.string(),
+  // MailerSend API (requerida solo con MAIL_TRANSPORT=mailersend)
+  MAILERSEND_API_KEY: z.string().optional(),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(25),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+}).superRefine((val, ctx) => {
+  if (val.MAIL_TRANSPORT === "smtp") {
+    if (!val.SMTP_HOST) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["SMTP_HOST"], message: "requerida con MAIL_TRANSPORT=smtp" });
+    if (!val.SMTP_PORT) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["SMTP_PORT"], message: "requerida con MAIL_TRANSPORT=smtp" });
+  } else if (!val.MAILERSEND_API_KEY) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAILERSEND_API_KEY"], message: "requerida con MAIL_TRANSPORT=mailersend" });
+  }
 }).parse(process.env);
 
 const db = createDb({ connectionString: env.DATABASE_URL, maxConnections: 4 });
 await assertDatabaseReady(db);
 
-const mailer = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: env.SMTP_PORT,
-  secure: env.SMTP_PORT === 465,
-  auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined,
-});
-
 let running = true;
 const log = (msg: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ ts: new Date().toISOString(), msg, ...extra }));
+
+// Construye el transporte de correo según MAIL_TRANSPORT. parseMailFrom valida
+// el formato de MAIL_FROM y, si está mal, cortamos el arranque con un mensaje
+// claro (un error de config no debe disfrazarse de fallo al enviar).
+let mailer: Mailer;
+try {
+  const from = parseMailFrom(env.MAIL_FROM);
+  mailer = env.MAIL_TRANSPORT === "mailersend"
+    ? createMailerSendMailer({ apiKey: env.MAILERSEND_API_KEY as string, from })
+    : createSmtpMailer({
+        host: env.SMTP_HOST as string,
+        port: env.SMTP_PORT as number,
+        user: env.SMTP_USER,
+        password: env.SMTP_PASSWORD,
+        from,
+      });
+  log("Transporte de correo listo", { transport: env.MAIL_TRANSPORT, from: from.email });
+} catch (err) {
+  log("Config de correo inválida, abortando", { error: err instanceof Error ? err.message : String(err) });
+  process.exit(1);
+}
 
 const stop = async (signal: string) => {
   log("Deteniendo worker", { signal });
@@ -61,7 +88,6 @@ while (running) {
     const result = await processEmailBatch(db, mailer, {
       batchSize: env.WORKER_BATCH_SIZE,
       maxAttempts: env.WORKER_MAX_ATTEMPTS,
-      from: env.MAIL_FROM,
     });
 
     if (result.sent || result.failed) log("Lote de correos procesado", { sent: result.sent, failed: result.failed });

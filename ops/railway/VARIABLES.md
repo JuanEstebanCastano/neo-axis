@@ -39,17 +39,24 @@ GOOGLE_CLIENT_SECRET=    # (opcional) Google Cloud Console → Credentials
 
 ```
 DATABASE_URL=            # la MISMA que api (Supabase pooler)
+MAIL_TRANSPORT=          # "smtp" o "mailersend" (en Railway usar "mailersend")
+MAIL_FROM=               # "Neo Axis <no-reply@TU_DOMINIO>" (dominio verificado)
+WORKER_BATCH_SIZE=       # 25
+WORKER_POLL_MS=          # 5000
+WORKER_MAX_ATTEMPTS=     # 5
+
+# -- Si MAIL_TRANSPORT=mailersend (recomendado en Railway: API HTTPS, puerto 443) --
+MAILERSEND_API_KEY=      # token de MailerSend (Integrations -> API tokens)
+
+# -- Si MAIL_TRANSPORT=smtp (Railway bloquea SMTP saliente en planes bajos) --
 SMTP_HOST=               # tu proveedor SMTP (Resend / SES / Mailgun / etc.)
 SMTP_PORT=               # 587 (o 465)
 SMTP_USER=               # usuario / API key del proveedor SMTP
 SMTP_PASSWORD=           # password / secret del proveedor SMTP
-MAIL_FROM=               # "Neo Axis <no-reply@TU_DOMINIO>"
-WORKER_BATCH_SIZE=       # 25
-WORKER_POLL_MS=          # 5000
-WORKER_MAX_ATTEMPTS=     # 5
 ```
 
 - El worker **no** expone puerto ni web: no lleva `PORT`, `PUBLIC_WEB_ORIGIN`, `S3_*` ni `COOKIE_*`.
+- **Railway bloquea SMTP saliente** (25/465/587/2525) en planes bajos → usar `MAIL_TRANSPORT=mailersend`.
 
 ## Va en VERCEL, NO en Railway
 

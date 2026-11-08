@@ -14,7 +14,7 @@
 
 import type { Database } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
-import type { Transporter } from "nodemailer";
+import type { Mailer } from "../lib/mailer.js";
 
 /**
  * Consumidor de app.email_notification_queue.
@@ -37,7 +37,6 @@ interface QueuedEmail {
 export interface EmailJobOptions {
   batchSize: number;
   maxAttempts: number;
-  from: string;
 }
 
 /** Reclama un lote en una transacción corta y lo marca como tomado. */
@@ -138,7 +137,7 @@ export interface EmailSendError {
 
 export async function processEmailBatch(
   db: Database,
-  mailer: Transporter,
+  mailer: Mailer,
   opts: EmailJobOptions,
 ): Promise<{ sent: number; failed: number; errors: EmailSendError[] }> {
   const batch = await claimBatch(db, opts.batchSize);
@@ -149,7 +148,7 @@ export async function processEmailBatch(
   for (const email of batch) {
     try {
       const { subject, html } = render(email.templateCode, email.payload ?? {});
-      await mailer.sendMail({ from: opts.from, to: email.recipientEmail, subject, html });
+      await mailer.send({ to: email.recipientEmail, subject, html });
       await markSent(db, email.id);
       sent += 1;
     } catch (err) {
