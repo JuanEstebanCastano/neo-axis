@@ -80,6 +80,14 @@ export default fp(async (app) => {
   });
 
   app.decorate("clearSessionCookie", (reply) => {
-    reply.clearCookie(config.SESSION_COOKIE_NAME, { path: "/" });
+    // El borrado debe replicar los MISMOS atributos con que se creó la cookie
+    // (secure + sameSite), o el navegador no la hace coincidir y la cookie
+    // cross-site (SameSite=None; Secure) no se elimina de verdad.
+    reply.clearCookie(config.SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      secure: isProduction || config.COOKIE_SAMESITE === "none",
+      sameSite: config.COOKIE_SAMESITE,
+      path: "/",
+    });
   });
 }, { name: "auth", dependencies: ["db"] });

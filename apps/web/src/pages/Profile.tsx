@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
 import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState, Badge } from "../components/ui";
@@ -192,13 +192,23 @@ function NotificationsForm({ prefs }: { prefs: NotificationPrefs | null }) {
 }
 
 export function Profile() {
-  const { user, ready } = useAuth();
+  const { user, ready, logout } = useAuth();
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useQuery({ queryKey: ["profile"], queryFn: () => api.profile(), enabled: Boolean(user) });
 
   if (ready && !user) return <Navigate to="/auth" replace />;
 
+  async function handleLogout() {
+    await logout();
+    navigate("/");
+  }
+
   return (
-    <Shell title="Mi perfil" subtitle="Tu información y preferencias de la cuenta.">
+    <Shell
+      title="Mi perfil"
+      subtitle="Tu información y preferencias de la cuenta."
+      actions={<Button variant="ghost" icon="logout" onClick={handleLogout}>Salir</Button>}
+    >
       {isLoading || !ready ? (
         <div className="stack"><Skeleton h={120} r={18} /><Skeleton h={220} r={18} /><Skeleton h={180} r={18} /></div>
       ) : isError || !data ? (
