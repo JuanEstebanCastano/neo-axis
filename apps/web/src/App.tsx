@@ -7,6 +7,7 @@ import { Library } from "./pages/Library";
 import { BookDetail } from "./pages/BookDetail";
 import { Snippets } from "./pages/Snippets";
 import { Discover } from "./pages/Discover";
+import { Profile } from "./pages/Profile";
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
       <Route path="/biblioteca/:id" element={<BookDetail />} />
       <Route path="/snippets" element={<Snippets />} />
       <Route path="/descubrir" element={<Discover />} />
+      <Route path="/perfil" element={<Profile />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

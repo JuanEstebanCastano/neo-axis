@@ -22,6 +22,7 @@ import { config, isProduction } from "./config.js";
 import dbPlugin from "./plugins/db.js";
 import authPlugin from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/routes.js";
+import { userRoutes } from "./modules/users/routes.js";
 import { postRoutes } from "./modules/posts/routes.js";
 import { collectionRoutes } from "./modules/collections/routes.js";
 import { bookRoutes } from "./modules/books/routes.js";
@@ -109,6 +110,7 @@ app.setErrorHandler((err, req, reply) => {
 
 await app.register(async (api) => {
   await api.register(authRoutes);
+  await api.register(userRoutes);
   await api.register(postRoutes);
   await api.register(collectionRoutes);
   await api.register(bookRoutes);

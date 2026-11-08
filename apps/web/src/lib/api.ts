@@ -59,6 +59,21 @@ export interface Snippet {
   id: string; postId: string; title: string; language: string; filename: string | null;
   sourceCode: string; createdAt: string; authorUsername: string; authorDisplayName: string;
 }
+export interface Profile {
+  id: string; username: string; displayName: string; email: string;
+  bio: string | null; websiteUrl: string | null; avatarUrl: string | null;
+  status: string; createdAt: string;
+}
+export interface NotificationPrefs {
+  userId: string; inAppEnabled: boolean; emailEnabled: boolean;
+  emailMentions: boolean; emailComments: boolean; emailReactions: boolean;
+  emailFollows: boolean; emailEvents: boolean; emailModeration: boolean; updatedAt: string;
+}
+export interface MeFull {
+  user: Profile;
+  stats: { posts: number; snippets: number; collections: number };
+  notifications: NotificationPrefs | null;
+}
 
 export const api = {
   me: () => req<{ user: User; permissions: string[] }>("/auth/me"),
@@ -104,4 +119,15 @@ export const api = {
   snippets: () => req<{ items: Snippet[] }>("/snippets"),
   createSnippet: (b: { title: string; language: string; sourceCode: string; filename?: string }) =>
     req<{ snippet: Snippet }>("/snippets", { method: "POST", body: JSON.stringify(b) }),
+
+  // ── Perfil ──
+  profile: () => req<MeFull>("/users/me"),
+  updateProfile: (b: { displayName?: string; bio?: string | null; websiteUrl?: string | null; avatarUrl?: string | null }) =>
+    req<{ user: Profile }>("/users/me", { method: "PUT", body: JSON.stringify(b) }),
+  changeEmail: (b: { email: string; currentPassword: string }) =>
+    req<{ user: Profile }>("/users/me/email", { method: "PUT", body: JSON.stringify(b) }),
+  changePassword: (b: { currentPassword: string; newPassword: string }) =>
+    req<{ ok: boolean }>("/users/me/password", { method: "PUT", body: JSON.stringify(b) }),
+  updateNotifications: (b: Partial<Omit<NotificationPrefs, "userId" | "updatedAt">>) =>
+    req<{ notifications: NotificationPrefs }>("/users/me/notifications", { method: "PUT", body: JSON.stringify(b) }),
 };

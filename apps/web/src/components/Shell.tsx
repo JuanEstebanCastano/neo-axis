@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon";
 import { Button } from "./ui";
 import { useTheme } from "../context/ThemeContext";
@@ -75,10 +75,10 @@ export function Shell({
             {actions}
             <span className="mobile-theme"><ThemeSwitch /></span>
             {user ? (
-              <span className="usertag">
+              <Link to="/perfil" className="usertag" title="Ver mi perfil">
                 <span className="usertag__av"><Icon name="user" size={16} /></span>
                 <span className="usertag__name">@{user.username}</span>
-              </span>
+              </Link>
             ) : null}
           </div>
         </header>
