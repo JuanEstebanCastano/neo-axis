@@ -12,3 +12,12 @@ export const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+export const forgotPasswordBody = z.object({
+  email: z.string().email().max(320),
+});
+
+export const resetPasswordBody = z.object({
+  token: z.string().min(1, "Token faltante"),
+  newPassword: z.string().min(12, "La contraseña debe tener al menos 12 caracteres").max(200),
+});

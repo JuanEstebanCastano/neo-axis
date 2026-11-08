@@ -367,6 +367,15 @@ export interface AuthSessions {
   userId: string;
 }
 
+export interface PasswordResetTokens {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  tokenHash: Buffer;
+  usedAt: Timestamp | null;
+  userId: string;
+}
+
 export interface AuthSessions2 {
   aal: AuthAalLevel | null;
   createdAt: Timestamp | null;
@@ -1202,6 +1211,7 @@ export interface DB {
   commentMentions: CommentMentions;
   comments: Comments;
   emailNotificationQueue: EmailNotificationQueue;
+  passwordResetTokens: PasswordResetTokens;
   eventAllowedRoles: EventAllowedRoles;
   eventAllowedUsers: EventAllowedUsers;
   eventRegistrations: EventRegistrations;

@@ -13,13 +13,14 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { config } from "../../config.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
-import { issueSession, revokeSession } from "../../lib/session.js";
+import { issueSession, revokeSession, hashToken } from "../../lib/session.js";
 import { badRequest, conflict, unauthorized } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 
-import { registerBody, loginBody } from "./schemas.js";
+import { registerBody, loginBody, forgotPasswordBody, resetPasswordBody } from "./schemas.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/auth/register", async (req, reply) => {
@@ -126,6 +127,100 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     app.setSessionCookie(reply, session.token, session.expiresAt);
     return { user: { id: row.id, username: row.username, displayName: row.displayName, avatarUrl: row.avatarUrl } };
+  });
+
+  // Pedir restablecimiento. Siempre responde 200, exista o no el correo, para
+  // no revelar qué direcciones están registradas. Si la cuenta existe y está
+  // activa, genera un token (guarda solo el hash) y encola el correo.
+  app.post("/auth/forgot-password", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (req, reply) => {
+    const parsed = forgotPasswordBody.safeParse(req.body);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+    const { email } = parsed.data;
+
+    const user = await app.db
+      .selectFrom("users")
+      .select(["id", "email", "status"])
+      .where((eb) => eb(eb.fn("lower", ["email"]), "=", email.toLowerCase()))
+      .where("deletedAt", "is", null)
+      .executeTakeFirst();
+
+    if (user && user.status === "active") {
+      const token = randomBytes(32).toString("base64url");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+      const base = (config.PUBLIC_WEB_ORIGIN.split(",")[0] ?? config.PUBLIC_WEB_ORIGIN).trim().replace(/\/+$/, "");
+      const resetUrl = `${base}/restablecer?token=${token}`;
+
+      await app.db.transaction().execute(async (trx) => {
+        // Un solo token vivo por usuario: invalida los anteriores sin usar.
+        await trx
+          .updateTable("passwordResetTokens")
+          .set({ usedAt: new Date() })
+          .where("userId", "=", user.id as string)
+          .where("usedAt", "is", null)
+          .execute();
+
+        await trx
+          .insertInto("passwordResetTokens")
+          .values({ userId: user.id as string, tokenHash: hashToken(token), expiresAt })
+          .execute();
+
+        await trx
+          .insertInto("emailNotificationQueue")
+          .values({
+            userId: user.id as string,
+            recipientEmail: user.email as string,
+            templateCode: "auth.password_reset",
+            payload: JSON.stringify({ resetUrl }),
+          })
+          .execute();
+      });
+    }
+
+    return reply.send({ ok: true });
+  });
+
+  // Restablecer con el token del correo. Cambia la contraseña, marca el token
+  // como usado y revoca TODAS las sesiones del usuario.
+  app.post("/auth/reset-password", { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } }, async (req, reply) => {
+    const parsed = resetPasswordBody.safeParse(req.body);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+    const { token, newPassword } = parsed.data;
+
+    const row = await app.db
+      .selectFrom("passwordResetTokens")
+      .select(["id", "userId", "expiresAt", "usedAt"])
+      .where("tokenHash", "=", hashToken(token))
+      .executeTakeFirst();
+
+    const expired = row ? new Date(row.expiresAt as unknown as string).getTime() <= Date.now() : true;
+    if (!row || row.usedAt || expired) {
+      throw badRequest("El enlace no es válido o expiró. Pedí uno nuevo.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await app.db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable("userCredentials")
+        .set({ passwordHash })
+        .where("userId", "=", row.userId as string)
+        .execute();
+
+      await trx
+        .updateTable("passwordResetTokens")
+        .set({ usedAt: new Date() })
+        .where("id", "=", row.id as string)
+        .execute();
+
+      // Seguridad: toda sesión abierta queda invalidada tras el reset.
+      await trx
+        .updateTable("authSessions")
+        .set({ revokedAt: new Date() })
+        .where("userId", "=", row.userId as string)
+        .where("revokedAt", "is", null)
+        .execute();
+    });
+
+    return reply.send({ ok: true });
   });
 
   app.post("/auth/logout", async (req, reply) => {

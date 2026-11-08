@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Surface, Button, Field, Input } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../lib/api";
@@ -76,6 +76,12 @@ export function Auth() {
             {mode === "login" ? "Ingresar" : "Crear cuenta"}
           </Button>
         </form>
+
+        {mode === "login" && (
+          <p className="auth__alt">
+            <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
+          </p>
+        )}
 
         <p className="auth__alt">
           <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Explorar sin cuenta →</a>

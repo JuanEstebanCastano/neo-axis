@@ -82,6 +82,10 @@ export const api = {
   register: (b: { username: string; displayName: string; email: string; password: string }) =>
     req<{ user: User }>("/auth/register", { method: "POST", body: JSON.stringify(b) }),
   logout: () => req<null>("/auth/logout", { method: "POST" }),
+  forgotPassword: (b: { email: string }) =>
+    req<{ ok: boolean }>("/auth/forgot-password", { method: "POST", body: JSON.stringify(b) }),
+  resetPassword: (b: { token: string; newPassword: string }) =>
+    req<{ ok: boolean }>("/auth/reset-password", { method: "POST", body: JSON.stringify(b) }),
 
   feed: (limit = 20) => req<{ items: Post[]; nextCursor: string | null }>(`/posts?limit=${limit}`),
   // Detalle de una publicación: incluye el cuerpo completo (bodyMarkdown) para
