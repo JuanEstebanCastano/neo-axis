@@ -9,3 +9,10 @@ dist/
 # packages/db/src/schema.d.ts: AHORA SE VERSIONA (es input del build de Docker/
 # Railway, que no tiene BD para generarlo). Regenerar con `pnpm db:types` y
 # commitear cuando cambie el esquema. Ver packages/db/README.md.
+
+# Herramientas del agente. Las skills de Supabase SÍ se versionan, pero en
+# .agents/ (con skills-lock.json, que fija la versión para todo el equipo).
+# .claude/skills/ es una copia byte a byte de ese mismo contenido, que escribe
+# el instalador: versionarla duplicaría 40 archivos sin aportar nada. Y
+# settings.local.json es de cada máquina, como dice su nombre.
+.claude/
