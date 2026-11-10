@@ -14,7 +14,6 @@
 
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import type { Database } from "@neoaxis/db";
-import { sql } from "@neoaxis/db";
 
 /**
  * Sesiones opacas, no JWT.

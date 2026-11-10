@@ -12,7 +12,6 @@
  */
 
 import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { config } from "../../config.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";

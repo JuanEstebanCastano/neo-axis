@@ -13,7 +13,6 @@
  */
 
 import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
 import { embedText, embeddingsEnabled } from "../../lib/embeddings.js";
 import { recommendByEmbedding, backfillEmbeddings } from "../../lib/search.js";
 import { canViewPost, PERMISSIONS } from "../../lib/rbac.js";

@@ -1,0 +1,15 @@
+// Proyecto "solución": no compila nada por sí mismo, sólo encadena los
+// workspaces que SÍ se compilan, en orden de dependencia. Es lo que hace
+// funcionar a `tsc -b` desde la raíz (y por lo tanto a `pnpm typecheck`).
+//
+// apps/web no está acá a propósito: usa `noEmit` (lo compila Vite, no tsc) y
+// un proyecto `composite` no puede desactivar el emit. Se chequea aparte, con
+// `tsc -p apps/web --noEmit`, que es la segunda mitad del script `typecheck`.
+{
+  "files": [],
+  "references": [
+    { "path": "packages/db" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" }
+  ]
+}

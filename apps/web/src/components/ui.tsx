@@ -1,10 +1,10 @@
 /** Primitivas neumórficas reutilizables. */
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ElementType, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { Icon, type IconName } from "./Icon";
 
 export function Surface({
   children, inset = false, className = "", as: As = "div", ...rest
-}: { children: ReactNode; inset?: boolean; className?: string; as?: any } & Record<string, unknown>) {
+}: { children: ReactNode; inset?: boolean; className?: string; as?: ElementType } & Record<string, unknown>) {
   return (
     <As className={`surface ${inset ? "surface--inset" : ""} ${className}`} {...rest}>
       {children}
