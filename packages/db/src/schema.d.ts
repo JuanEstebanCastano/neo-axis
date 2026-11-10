@@ -694,6 +694,7 @@ export interface GithubConnections {
   accessTokenEnc: Buffer;
   accessTokenExpiresAt: Timestamp | null;
   connectedAt: Generated<Timestamp>;
+  defaultRepo: string | null;
   githubAvatarUrl: string | null;
   githubLogin: string;
   githubUserId: Int8;

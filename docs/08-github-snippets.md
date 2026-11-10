@@ -76,12 +76,20 @@ pnpm db:types
 
 ## Permisos que se le piden a GitHub
 
-Sólo dos, y son los mínimos:
+Tres, y son los mínimos para lo que hace la app:
 
 - `gist` — crear y editar gists del usuario.
 - `read:user` — saber qué cuenta se conectó (login y avatar).
+- `public_repo` — leer y escribir en sus repositorios **públicos**
+  (ver `docs/09-github-repositorios.md`).
 
-No se pide `repo`: Neo Axis **no puede** tocar los repositorios de nadie.
+No se pide `repo`, que es el permiso amplio: ese incluiría también los
+repositorios **privados**, y daría escritura sobre todos ellos. Con
+`public_repo`, Neo Axis no puede ni ver un repositorio privado.
+
+> Si conectaste tu cuenta antes de que existiera la parte de repositorios, tu
+> token es anterior a `public_repo` y no alcanza. La interfaz lo detecta y te
+> ofrece reconectar; los gists que ya publicaste no se tocan.
 
 ---
 

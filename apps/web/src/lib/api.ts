@@ -58,6 +58,35 @@ export interface Book {
   files?: { id: string; format: string; accessLevel: string }[];
 }
 export interface RecoHit { entityType: string; entityId: string; title: string | null; distance: number }
+
+// ── Repositorios de GitHub ──
+export interface Repo {
+  name: string; fullName: string; private: boolean; htmlUrl: string;
+  description: string | null; defaultBranch: string; language: string | null; updatedAt: string;
+}
+/** Una entrada del árbol de archivos: un archivo o una carpeta. */
+export interface RepoEntry {
+  type: "file" | "dir" | "symlink" | "submodule";
+  name: string; path: string; size: number; sha: string; htmlUrl: string | null;
+}
+export interface RepoFile extends RepoEntry {
+  /** El texto. Null cuando el archivo es binario o pesa más de 1 MB. */
+  text: string | null;
+  binary: boolean;
+  tooLarge: boolean;
+  downloadUrl: string | null;
+}
+/** La respuesta dice de qué tipo es: una carpeta trae `entries`, un archivo `file`. */
+export type RepoContents =
+  | { kind: "dir"; path: string; entries: RepoEntry[] }
+  | { kind: "file"; path: string; file: RepoFile };
+export interface RepoCommit {
+  sha: string; message: string; authorLogin: string | null;
+  authorName: string | null; committedAt: string | null; htmlUrl: string;
+}
+export interface RepoWriteResult {
+  path: string; commitSha: string; commitUrl: string; creado: boolean;
+}
 export interface Snippet {
   id: string; postId: string; title: string; language: string; filename: string | null;
   sourceCode: string; createdAt: string; authorUsername: string; authorDisplayName: string;
@@ -173,6 +202,51 @@ export const api = {
     req<{ revision: RevisionDetail }>(`/snippets/${id}/revisions/${sha}`),
   importGist: (gist: string) =>
     req<{ snippet: Snippet }>("/snippets/import", { method: "POST", body: JSON.stringify({ gist }) }),
+
+  // ── Repositorios de GitHub ──
+  repos: () => req<{ repos: Repo[]; defaultRepo: string | null }>("/repos"),
+  createRepo: (b: { name: string; description?: string; autoInit?: boolean }) =>
+    req<{ repo: Repo }>("/repos", { method: "POST", body: JSON.stringify(b) }),
+  /** Deja fijado el repo que la pantalla abre al entrar. */
+  setDefaultRepo: (fullName: string | null) =>
+    req<{ defaultRepo: string | null; repo?: Repo }>("/repos/default", {
+      method: "PUT",
+      body: JSON.stringify({ fullName }),
+    }),
+  /** Una carpeta o un archivo, según lo que haya en esa ruta. */
+  repoContents: (owner: string, repo: string, path = "") =>
+    req<RepoContents>(
+      `/repos/${owner}/${repo}/contents?path=${encodeURIComponent(path)}`,
+    ),
+  repoCommits: (owner: string, repo: string, path?: string) =>
+    req<{ commits: RepoCommit[] }>(
+      `/repos/${owner}/${repo}/commits${path ? `?path=${encodeURIComponent(path)}` : ""}`,
+    ),
+  /** Crea o reemplaza un archivo. Cada llamada es un commit en GitHub. */
+  writeRepoFile: (
+    owner: string,
+    repo: string,
+    b: { path: string; content: string; encoding?: "utf8" | "base64"; message?: string; sha?: string },
+  ) =>
+    req<RepoWriteResult>(`/repos/${owner}/${repo}/contents`, {
+      method: "PUT",
+      body: JSON.stringify(b),
+    }),
+  /** Sube varios archivos del disco. Un commit por archivo. */
+  uploadRepoFiles: (
+    owner: string,
+    repo: string,
+    b: { files: { path: string; content: string; encoding: "utf8" | "base64" }[]; directory?: string; message?: string },
+  ) =>
+    req<{ subidos: RepoWriteResult[]; fallos: { path: string; error: string }[] }>(
+      `/repos/${owner}/${repo}/upload`,
+      { method: "POST", body: JSON.stringify(b) },
+    ),
+  deleteRepoFile: (owner: string, repo: string, b: { path: string; sha: string; message?: string }) =>
+    req<{ path: string; commitSha: string; commitUrl: string }>(
+      `/repos/${owner}/${repo}/contents`,
+      { method: "DELETE", body: JSON.stringify(b) },
+    ),
 
   // ── Perfil ──
   profile: () => req<MeFull>("/users/me"),

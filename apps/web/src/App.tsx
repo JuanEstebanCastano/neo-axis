@@ -6,6 +6,7 @@ import { CollectionDetail } from "./pages/CollectionDetail";
 import { Library } from "./pages/Library";
 import { BookDetail } from "./pages/BookDetail";
 import { Snippets } from "./pages/Snippets";
+import { Repos } from "./pages/Repos";
 import { Discover } from "./pages/Discover";
 import { Profile } from "./pages/Profile";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -23,6 +24,7 @@ export function App() {
       <Route path="/biblioteca" element={<Library />} />
       <Route path="/biblioteca/:id" element={<BookDetail />} />
       <Route path="/snippets" element={<Snippets />} />
+      <Route path="/repositorios" element={<Repos />} />
       <Route path="/descubrir" element={<Discover />} />
       <Route path="/perfil" element={<Profile />} />
       <Route path="*" element={<Navigate to="/" replace />} />

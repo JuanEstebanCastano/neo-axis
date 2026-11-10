@@ -92,7 +92,7 @@ export interface OauthToken {
 interface RequestOptions {
   /** Token del usuario. Sin él se leen sólo gists públicos (60 req/hora). */
   token?: string | undefined;
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
 }
 
@@ -290,6 +290,194 @@ export const forkGist = (token: string, gistId: string) =>
 
 export const deleteGist = (token: string, gistId: string) =>
   githubFetch<null>(`/gists/${gistId}`, { token, method: "DELETE" });
+
+// ── Repositorios ──────────────────────────────────────────────────────
+//
+// Un gist es un repo de archivos sueltos. Esto es la otra mitad: repos de
+// verdad, con carpetas. Lo que usamos es la "Contents API", que sube y baja
+// archivos de a uno y hace el commit sola. No necesitamos la Git Data API
+// (árboles y blobs a mano) porque no hacemos commits de varios archivos en
+// una sola operación: cada archivo es su propio commit, y así el historial
+// queda legible.
+
+export interface RepoSummary {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  html_url: string;
+  description: string | null;
+  default_branch: string;
+  updated_at: string;
+  language: string | null;
+}
+
+/** Una entrada del árbol: un archivo o una carpeta. */
+export interface RepoEntry {
+  type: "file" | "dir" | "symlink" | "submodule";
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  html_url: string | null;
+  download_url: string | null;
+}
+
+/** Un archivo con su contenido. GitHub lo manda en base64. */
+export interface RepoFile extends RepoEntry {
+  /** Vacío si el archivo pasa de 1 MB: ahí GitHub no manda el contenido. */
+  content?: string;
+  encoding?: "base64" | "none";
+}
+
+export interface CommitResult {
+  content: RepoEntry | null;
+  commit: {
+    sha: string;
+    html_url: string;
+    message: string;
+    author?: { name?: string; date?: string } | null;
+  };
+}
+
+export interface RepoCommit {
+  sha: string;
+  html_url: string;
+  commit: {
+    message: string;
+    author: { name: string | null; date: string | null } | null;
+  };
+  author: { login: string; avatar_url: string | null } | null;
+}
+
+/**
+ * Codifica una ruta para meterla en una URL sin romper las barras.
+ * `src/mi archivo.ts` -> `src/mi%20archivo.ts`. Si codificáramos la ruta
+ * entera de una, las `/` se volverían `%2F` y GitHub vería un solo archivo
+ * con un nombre absurdo en vez de una ruta.
+ */
+export function encodePath(path: string): string {
+  return path.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+}
+
+const repoBase = (owner: string, repo: string) =>
+  `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+
+/**
+ * Los repos del usuario sobre los que puede escribir.
+ * `affiliation=owner` deja afuera aquellos en los que sólo colabora, para no
+ * ofrecerle escribir donde quizá no deba.
+ */
+export const listUserRepos = (token: string, perPage = 100) =>
+  githubFetch<RepoSummary[]>(
+    `/user/repos?affiliation=owner&sort=updated&per_page=${perPage}`,
+    { token },
+  );
+
+export const getRepo = (token: string, owner: string, repo: string) =>
+  githubFetch<RepoSummary>(repoBase(owner, repo), { token });
+
+/**
+ * Crea un repo en la cuenta del usuario.
+ * `auto_init` es importante: un repo vacío no tiene ni rama por defecto, y
+ * entonces la Contents API falla al subir el primer archivo.
+ */
+export const createRepo = (
+  token: string,
+  input: { name: string; description?: string; private?: boolean; auto_init?: boolean },
+) => githubFetch<RepoSummary>("/user/repos", { token, method: "POST", body: input });
+
+/**
+ * Contenido de una ruta. Devuelve un array si es carpeta y un objeto si es
+ * archivo: eso lo resuelve el servicio, no quien llama.
+ */
+export const getContents = (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  ref?: string | undefined,
+) => {
+  const qs = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+  return githubFetch<RepoEntry[] | RepoFile>(
+    `${repoBase(owner, repo)}/contents/${encodePath(path)}${qs}`,
+    { token },
+  );
+};
+
+/**
+ * Crea o reemplaza un archivo, en un commit.
+ * El `sha` es la clave del asunto: sin él GitHub entiende "creá un archivo
+ * nuevo" y rechaza la operación si ya existe. Con él, entiende "reemplazá
+ * ESTA versión", y si alguien la cambió mientras tanto responde 409 en vez de
+ * pisar el trabajo ajeno.
+ */
+export const putFile = (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  input: { message: string; content: string; sha?: string; branch?: string },
+) =>
+  githubFetch<CommitResult>(`${repoBase(owner, repo)}/contents/${encodePath(path)}`, {
+    token,
+    method: "PUT",
+    body: input,
+  });
+
+export const deleteFile = (
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  input: { message: string; sha: string; branch?: string },
+) =>
+  githubFetch<CommitResult>(`${repoBase(owner, repo)}/contents/${encodePath(path)}`, {
+    token,
+    method: "DELETE",
+    body: input,
+  });
+
+/** Historial de un archivo (o del repo entero si no se pasa ruta). */
+export const listRepoCommits = (
+  token: string,
+  owner: string,
+  repo: string,
+  path?: string | undefined,
+  perPage = 20,
+) => {
+  const qs = new URLSearchParams({ per_page: String(perPage) });
+  if (path) qs.set("path", path);
+  return githubFetch<RepoCommit[]>(`${repoBase(owner, repo)}/commits?${qs.toString()}`, { token });
+};
+
+/**
+ * Parte `usuario/repo` en sus dos mitades. Acepta también la URL completa de
+ * GitHub, porque es lo que la gente tiene en el portapapeles.
+ */
+export function parseRepoFullName(input: string): { owner: string; repo: string } | null {
+  let texto = input.trim();
+  if (!texto) return null;
+
+  if (texto.includes("://")) {
+    try {
+      const url = new URL(texto);
+      if (url.hostname !== "github.com" && url.hostname !== "www.github.com") return null;
+      texto = url.pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  const partes = texto.split("/").filter(Boolean);
+  if (partes.length < 2) return null;
+  const owner = partes[0] as string;
+  const repo = (partes[1] as string).replace(/\.git$/, "");
+
+  const valido = /^[A-Za-z0-9._-]+$/;
+  if (!valido.test(owner) || !valido.test(repo)) return null;
+  return { owner, repo };
+}
 
 /**
  * Saca el id de un gist desde lo que haya pegado el usuario: una URL completa

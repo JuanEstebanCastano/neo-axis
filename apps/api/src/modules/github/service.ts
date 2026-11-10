@@ -16,11 +16,38 @@
 import type { Database } from "@neoaxis/db";
 import { config } from "../../config.js";
 import { decryptSecret, encryptSecret, parseEncryptionKey } from "../../lib/crypto.js";
-import { conflict, serviceUnavailable, unauthorized } from "../../lib/errors.js";
+import { AppError, conflict, serviceUnavailable, unauthorized } from "../../lib/errors.js";
 import * as gh from "./client.js";
 
-/** Permisos que le pedimos a GitHub. El mínimo para la fase de gists. */
-export const GITHUB_SCOPES = ["gist", "read:user"];
+/**
+ * Permisos que le pedimos a GitHub. Son el mínimo para lo que hace la app:
+ *  - gist         crear y editar gists del usuario.
+ *  - read:user    saber qué cuenta se conectó (login y avatar).
+ *  - public_repo  leer y escribir en sus repositorios PÚBLICOS.
+ *
+ * Deliberadamente NO pedimos `repo`: ese permiso abarca también los privados y
+ * da acceso de escritura a todos ellos. Si alguna vez hace falta trabajar con
+ * repos privados, es una decisión a tomar con el usuario, no un cambio de una
+ * línea acá.
+ */
+export const GITHUB_SCOPES = ["gist", "read:user", "public_repo"];
+
+/** Separa el campo `scopes` tal como lo devuelve GitHub ("a,b" o "a b"). */
+function parseScopes(crudo: string | null): string[] {
+  return crudo ? crudo.split(/[\s,]+/).filter(Boolean) : [];
+}
+
+/**
+ * Error propio, con su código, para "tu conexión es vieja y no alcanza".
+ * El frontend lo distingue de un 403 cualquiera y te ofrece reconectar en vez
+ * de dejarte adivinando.
+ */
+export const faltaScope = (scope: string) =>
+  new AppError(
+    403,
+    "github_scope_missing",
+    `Tu conexión con GitHub es anterior a esta función y no incluye el permiso "${scope}". Desconectá y volvé a conectar tu cuenta para habilitarla.`,
+  );
 
 // La clave se parsea una sola vez por proceso.
 let cachedKey: Buffer | null = null;
@@ -191,4 +218,49 @@ export async function getAccessToken(db: Database, userId: string): Promise<stri
     .execute();
 
   return nuevo.access_token;
+}
+
+/**
+ * Igual que getAccessToken, pero además exige que la conexión tenga el permiso
+ * que hace falta. Sin esto, el usuario que conectó su cuenta antes de que
+ * existiera la función de repositorios recibiría un 404 de GitHub —confuso—
+ * en vez de "reconectá tu cuenta".
+ */
+export async function getAccessTokenWithScope(
+  db: Database,
+  userId: string,
+  scope: string,
+): Promise<string> {
+  const fila = await db
+    .selectFrom("githubConnections")
+    .select("scopes")
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+
+  if (!fila) throw unauthorized("Conectá tu cuenta de GitHub para hacer esto.");
+  if (!parseScopes(fila.scopes).includes(scope)) throw faltaScope(scope);
+
+  return getAccessToken(db, userId);
+}
+
+/** El repo que el usuario dejó elegido la última vez. */
+export async function getDefaultRepo(db: Database, userId: string): Promise<string | null> {
+  const fila = await db
+    .selectFrom("githubConnections")
+    .select("defaultRepo")
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  return fila?.defaultRepo ?? null;
+}
+
+export async function setDefaultRepo(
+  db: Database,
+  userId: string,
+  fullName: string | null,
+): Promise<void> {
+  await db
+    .updateTable("githubConnections")
+    .set({ defaultRepo: fullName })
+    .where("userId", "=", userId)
+    .execute();
 }
