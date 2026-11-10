@@ -1,10 +1,53 @@
-# Snippets con control de versiones (GitHub)
+# Snippets
 
-Los snippets de Neo Axis pueden publicarse como **gists** en la cuenta de
-GitHub de su autor. A partir de ahí, cada edición queda versionada: GitHub
-guarda el historial, los diffs y quién hizo cada cambio.
+## Qué es y para qué sirve
 
-Neo Axis **no reimplementa Git**. Habla con la API de GitHub.
+Snippets es **el muro de código de la comunidad**. Alguien pega un fragmento
+que vale la pena no perder —una función que usa siempre, una consulta que
+costó dar con ella, un ajuste de configuración— con título, lenguaje y nombre
+de archivo opcional, y queda a la vista de todos.
+
+Es la contraparte del Feed, y están separados a propósito: el Feed es para
+texto, Snippets es para código. Por debajo un snippet *es* un post, pero la
+API los excluye del feed para que no lo inunden.
+
+**Frente a pegar el código en una publicación normal, aporta dos cosas:**
+
+1. Se presenta como código: bloque monoespaciado, lenguaje etiquetado,
+   desplazamiento propio, sin que un fragmento largo rompa la tarjeta.
+2. **Historial de versiones real, si el autor conecta GitHub.** Es lo que hace
+   distinta la sección.
+
+## Conectar GitHub es opcional
+
+Conviene decirlo primero porque la interfaz lo dice y la documentación antes
+no: **sin conectar la cuenta, Snippets funciona igual**. Compartes el
+fragmento y se ve. Lo único que no tienes es historial, y el panel de GitHub
+ni siquiera aparece si el servidor no tiene la integración configurada.
+
+Al conectarla, cada snippet propio puede publicarse como un **gist**: un
+repositorio de Git de un solo archivo, sin ramas. A partir de ahí, cada
+edición queda versionada —GitHub guarda el historial, los diffs y quién hizo
+cada cambio— y todo eso se consulta sin salir de Neo Axis.
+
+**Neo Axis no reimplementa Git.** Habla con la API de GitHub.
+
+## Qué puede hacer una persona
+
+| Acción | Qué consigue | ¿Necesita conectar GitHub? |
+|---|---|---|
+| Compartir código | Lo publica en el muro | No |
+| Publicar en GitHub | Crea el gist en su cuenta y empieza el historial | Sí |
+| Ver cambios | Lista de revisiones; abre el contenido de cualquiera | No (basta con que el snippet tenga gist) |
+| Traer de GitHub | Actualiza la copia local con la última versión del gist | Sí |
+| Traer un gist que ya tengo | Importa a Neo Axis un gist existente | **No** — con el token solo alcanza además a los gists secretos propios |
+
+## Qué NO es
+
+- **No es Repositorios.** Esa sección trabaja con un repositorio completo:
+  árbol de archivos, subida desde el disco, commits. Snippets es un archivo
+  suelto, para compartir.
+- **No es un editor de Git.** No hay ramas, ni pull requests, ni merge.
 
 ---
 
@@ -15,9 +58,9 @@ Para lo que hace este apartado —compartir un archivo de código y poder ver su
 historia— alcanza y sobra, con una fracción del trabajo que lleva manejar
 árboles de archivos, ramas y pull requests.
 
-La fase siguiente (repos completos con la API de repos: `POST /user/repos`,
-Contents API y Git Data API) reutiliza tal cual el OAuth, el cliente HTTP y la
-tabla de conexiones que ya están hechos.
+Los repositorios completos llegaron después (ver
+`docs/09-github-repositorios.md`) y reutilizan tal cual el OAuth, el cliente
+HTTP y la tabla de conexiones que ya estaban hechos acá.
 
 ---
 
@@ -30,6 +73,7 @@ tabla de conexiones que ya están hechos.
 | `apps/api/src/modules/github/routes.ts` | El baile de OAuth: conectar, callback, desconectar. |
 | `apps/api/src/modules/snippets/service.ts` | Publicar, editar, sincronizar, importar e historial. |
 | `apps/api/src/lib/crypto.ts` | Cifra el token con AES-256-GCM. |
+| `apps/web/src/pages/Snippets.tsx` | La pantalla: muro, formulario, historial y panel de GitHub. |
 
 ---
 
@@ -132,6 +176,11 @@ el permiso, el snippet se sigue viendo; lo único que se pierde es el historial.
 **Un archivo por snippet.** El modelo local tiene un `source_code` y un
 `filename`. Un gist puede tener varios archivos: al importarlo, la copia local
 toma el primero, y el historial muestra todos.
+
+**Importar no exige conexión.** `importSnippetFromGist` usa el token del
+usuario sólo si lo tiene, y únicamente para alcanzar sus gists secretos. Un
+gist público se importa sin conectar nada, y por eso esa acción está siempre a
+la vista.
 
 ---
 

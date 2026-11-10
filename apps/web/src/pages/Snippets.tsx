@@ -218,15 +218,23 @@ function AccionesGithub({ snippet }: { snippet: Snippet }) {
   const error = (publicar.error ?? sincronizar.error) as Error | null;
 
   return (
-    <div className="stack stack--sm">
+    <div className="stack stack--sm gh-actions">
+      {/* El botón solo dice a dónde va; la línea de abajo dice qué consigue.
+          Sin ella, "Publicar" y "Traer" se leían como lo mismo al revés. */}
       {snippet.gistId ? (
-        <Button variant="ghost" icon="sync" loading={sincronizar.isPending} onClick={() => sincronizar.mutate()}>
-          {t("github.pull")}
-        </Button>
+        <>
+          <Button variant="ghost" icon="sync" loading={sincronizar.isPending} onClick={() => sincronizar.mutate()}>
+            {t("github.pull")}
+          </Button>
+          <span className="action-hint">{t("github.pullHint")}</span>
+        </>
       ) : (
-        <Button variant="ghost" icon="external" loading={publicar.isPending} onClick={() => publicar.mutate()}>
-          {t("github.publish")}
-        </Button>
+        <>
+          <Button variant="ghost" icon="external" loading={publicar.isPending} onClick={() => publicar.mutate()}>
+            {t("github.publish")}
+          </Button>
+          <span className="action-hint">{t("github.publishHint")}</span>
+        </>
       )}
       {error && (
         <p className="field__error" role="alert">
@@ -266,7 +274,7 @@ function ShareForm({ onClose }: { onClose: () => void }) {
       {/* Alineadas por arriba: los campos tienen etiquetas de una línea, pero
           uno con error crece y no debe arrastrar a los otros dos. */}
       <div className="row row--top">
-        <Field label={t("snippets.formTitle")} className="col col--lg">
+        <Field label={t("snippets.formTitle")} hint={t("snippets.formTitleHint")} className="col col--lg">
           <Input
             value={form.title}
             onChange={upd("title")}
@@ -274,7 +282,7 @@ function ShareForm({ onClose }: { onClose: () => void }) {
             required
           />
         </Field>
-        <Field label={t("snippets.language")} className="col col--sm">
+        <Field label={t("snippets.language")} hint={t("snippets.languageHint")} className="col col--sm">
           <Input
             value={form.language}
             onChange={upd("language")}
@@ -282,7 +290,7 @@ function ShareForm({ onClose }: { onClose: () => void }) {
             required
           />
         </Field>
-        <Field label={t("snippets.filename")} className="col col--sm">
+        <Field label={t("snippets.filename")} hint={t("snippets.filenameHint")} className="col col--sm">
           <Input
             value={form.filename}
             onChange={upd("filename")}
@@ -379,12 +387,6 @@ export function Snippets() {
         </Surface>
       )}
 
-      {user && (
-        <div className="block-gap">
-          <GithubPanel />
-        </div>
-      )}
-
       {sharing && (
         <div className="block-gap">
           <ShareForm onClose={() => setSharing(false)} />
@@ -443,7 +445,10 @@ export function Snippets() {
                       )}
                     </div>
                   </div>
-                  <Badge tone="accent">{s.language}</Badge>
+                  <div className="row row--sm">
+                    {s.gistId && <Badge>{t("snippets.versioned")}</Badge>}
+                    <Badge tone="accent">{s.language}</Badge>
+                  </div>
                 </div>
 
                 <pre className="code" tabIndex={0}>
@@ -470,6 +475,15 @@ export function Snippets() {
               </Surface>
             );
           })}
+        </div>
+      )}
+
+      {/* La conexión con GitHub va DESPUÉS del contenido: es configuración
+          opcional, y arriba era lo primero que veía alguien que entraba a
+          mirar código, antes de ver una sola línea. */}
+      {user && (
+        <div className="gh-panel">
+          <GithubPanel />
         </div>
       )}
     </Shell>

@@ -718,3 +718,24 @@
 .revision__file {
   margin-top: var(--sp-2);
 }
+
+/* Lo que consigue una acción, debajo del botón que la dispara. "Publicar en
+   GitHub" y "Traer de GitHub" se leían como la misma cosa en dos sentidos;
+   el botón dice a dónde va y esta línea dice qué pasa. */
+.gh-actions {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.action-hint {
+  max-width: 34ch;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Separa la configuración de GitHub del último snippet: es otra cosa, no una
+   tarjeta más de la lista. */
+.gh-panel {
+  margin-top: var(--sp-7);
+}
