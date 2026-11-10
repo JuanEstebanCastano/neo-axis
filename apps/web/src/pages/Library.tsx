@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
@@ -14,7 +14,7 @@ import {
   Badge,
 } from "../components/ui";
 import { Icon } from "../components/Icon";
-import { api, type Book, type LibroExterno } from "../lib/api";
+import { api, type Book, type BookFilters, type LibroExterno } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 
@@ -193,14 +193,271 @@ function PanelImportar() {
   );
 }
 
+// ── Agregar un libro pegando sus enlaces ──────────────────────────────
+
+const FORM_VACIO = {
+  title: "",
+  authors: "",
+  languageCode: "",
+  readUrl: "",
+  downloadUrl: "",
+  coverUrl: "",
+  sourceUrl: "",
+  rightsNote: "",
+};
+
+function PanelEnlace({ onListo }: { onListo: () => void }) {
+  const qc = useQueryClient();
+  const { t } = useI18n();
+  const [form, setForm] = useState(FORM_VACIO);
+
+  const upd =
+    (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const guardar = useMutation({
+    mutationFn: () =>
+      api.linkBook({
+        title: form.title.trim(),
+        // "Rivera, José Eustasio, Otro Autor" -> dos nombres. Lo separa la
+        // coma porque es como se escriben los autores en una ficha.
+        authors: form.authors
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean),
+        rightsNote: form.rightsNote.trim(),
+        ...(form.languageCode.trim() ? { languageCode: form.languageCode.trim() } : {}),
+        ...(form.readUrl.trim() ? { readUrl: form.readUrl.trim() } : {}),
+        ...(form.downloadUrl.trim() ? { downloadUrl: form.downloadUrl.trim() } : {}),
+        ...(form.coverUrl.trim() ? { coverUrl: form.coverUrl.trim() } : {}),
+        ...(form.sourceUrl.trim() ? { sourceUrl: form.sourceUrl.trim() } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["books"] });
+      setForm(FORM_VACIO);
+    },
+  });
+
+  const sinEnlace = !form.readUrl.trim() && !form.downloadUrl.trim();
+  const listo = form.title.trim() && form.rightsNote.trim() && !sinEnlace;
+
+  if (guardar.data) {
+    return (
+      <Surface className="post block-gap">
+        <p className="result-line result-line--ok" role="status">
+          <Icon name="check" size={14} />
+          {t("link.added")}
+          <Link to={"/biblioteca/" + guardar.data.bookId}>{t("link.seeBook")}</Link>
+        </p>
+        <div className="row row--sm">
+          <Button variant="ghost" icon="plus" onClick={() => guardar.reset()}>
+            {t("link.add")}
+          </Button>
+          <Button variant="ghost" onClick={onListo}>
+            {t("common.close")}
+          </Button>
+        </div>
+      </Surface>
+    );
+  }
+
+  return (
+    <Surface
+      className="post block-gap"
+      as="form"
+      onSubmit={(e: React.FormEvent) => {
+        e.preventDefault();
+        if (listo) guardar.mutate();
+      }}
+    >
+      <p className="post__meta measure">{t("link.intro")}</p>
+
+      {/* El aviso va antes de los campos, no debajo del botón: tiene que
+          leerse antes de pegar nada, no después de haberlo subido. */}
+      <p className="post__meta measure">
+        <Icon name="alert" size={14} />
+        {t("link.legal")}
+      </p>
+
+      <div className="row row--top">
+        <Field label={t("link.title")} className="col col--lg">
+          <Input value={form.title} onChange={upd("title")} placeholder={t("link.titlePlaceholder")} required />
+        </Field>
+        <Field label={t("link.lang")} className="col col--sm">
+          <Input value={form.languageCode} onChange={upd("languageCode")} placeholder={t("link.langPlaceholder")} />
+        </Field>
+      </div>
+
+      <Field label={t("link.authors")} hint={t("link.authorsHint")}>
+        <Input value={form.authors} onChange={upd("authors")} placeholder={t("link.authorsPlaceholder")} />
+      </Field>
+
+      <div className="row row--top">
+        <Field label={t("link.readUrl")} hint={t("link.readUrlHint")} className="col">
+          <Input type="url" value={form.readUrl} onChange={upd("readUrl")} placeholder="https://…" />
+        </Field>
+        <Field label={t("link.downloadUrl")} hint={t("link.downloadUrlHint")} className="col">
+          <Input type="url" value={form.downloadUrl} onChange={upd("downloadUrl")} placeholder="https://…" />
+        </Field>
+      </div>
+
+      {sinEnlace && <p className="field__hint">{t("link.oneLinkNeeded")}</p>}
+
+      <div className="row row--top">
+        <Field label={t("link.coverUrl")} className="col">
+          <Input type="url" value={form.coverUrl} onChange={upd("coverUrl")} placeholder="https://…" />
+        </Field>
+        <Field label={t("link.sourceUrl")} hint={t("link.sourceUrlHint")} className="col">
+          <Input type="url" value={form.sourceUrl} onChange={upd("sourceUrl")} placeholder="https://…" />
+        </Field>
+      </div>
+
+      <Field label={t("link.rights")} hint={t("link.rightsHint")}>
+        <Input
+          value={form.rightsNote}
+          onChange={upd("rightsNote")}
+          placeholder={t("link.rightsPlaceholder")}
+          required
+        />
+      </Field>
+
+      <div className="row spread">
+        <Button variant="ghost" onClick={onListo}>
+          {t("common.cancel")}
+        </Button>
+        <Button variant="accent" type="submit" loading={guardar.isPending} disabled={!listo}>
+          {t("link.submit")}
+        </Button>
+      </div>
+
+      {guardar.isError && (
+        <p className="field__error" role="alert">
+          {(guardar.error as Error).message || t("link.failed")}
+        </p>
+      )}
+    </Surface>
+  );
+}
+
+// ── Filtros del catálogo ──────────────────────────────────────────────
+
+function BarraFiltros({
+  filtros,
+  onCambiar,
+  idiomas,
+}: {
+  filtros: BookFilters;
+  onCambiar: (f: BookFilters) => void;
+  idiomas: string[];
+}) {
+  const { t } = useI18n();
+  // El texto se escribe acá y se manda con retardo: así teclear no dispara
+  // una consulta por letra.
+  const [texto, setTexto] = useState(filtros.q ?? "");
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if ((filtros.q ?? "") !== texto) onCambiar({ ...filtros, q: texto || undefined });
+    }, 300);
+    return () => clearTimeout(id);
+    // Sólo `texto` en las dependencias, a propósito: `filtros` y `onCambiar`
+    // cambian de identidad en cada render y reiniciarían el temporizador sin
+    // parar, de modo que la búsqueda no se mandaría nunca.
+  }, [texto]);
+
+  const activos =
+    Boolean(filtros.q) ||
+    Boolean(filtros.lang) ||
+    (filtros.source && filtros.source !== "any") ||
+    (filtros.access && filtros.access !== "any");
+
+  return (
+    <Surface className="post block-gap">
+      <div className="row row--top">
+        <Field label={t("library.filterSearch")} className="col col--lg">
+          <Input
+            type="search"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder={t("library.filterSearchPlaceholder")}
+          />
+        </Field>
+
+        <Field label={t("library.filterLang")} className="col col--sm">
+          <Select
+            value={filtros.lang ?? ""}
+            onChange={(e) => onCambiar({ ...filtros, lang: e.target.value || undefined })}
+          >
+            <option value="">{t("library.filterLangAll")}</option>
+            {idiomas.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label={t("library.filterSource")} className="col">
+          <Select
+            value={filtros.source ?? "any"}
+            onChange={(e) => onCambiar({ ...filtros, source: e.target.value as BookFilters["source"] })}
+          >
+            <option value="any">{t("library.sourceAny")}</option>
+            <option value="gutendex">{t("library.sourceGutendex")}</option>
+            <option value="manual">{t("library.sourceManual")}</option>
+          </Select>
+        </Field>
+
+        <Field label={t("library.filterAccess")} className="col">
+          <Select
+            value={filtros.access ?? "any"}
+            onChange={(e) => onCambiar({ ...filtros, access: e.target.value as BookFilters["access"] })}
+          >
+            <option value="any">{t("library.accessAny")}</option>
+            <option value="readable">{t("library.accessReadable")}</option>
+            <option value="downloadable">{t("library.accessDownloadable")}</option>
+          </Select>
+        </Field>
+      </div>
+
+      {activos && (
+        <div className="row row--right">
+          <Button
+            variant="ghost"
+            icon="close"
+            onClick={() => {
+              setTexto("");
+              onCambiar({});
+            }}
+          >
+            {t("library.clearFilters")}
+          </Button>
+        </div>
+      )}
+    </Surface>
+  );
+}
+
 // ── Página ────────────────────────────────────────────────────────────
 
 export function Library() {
-  const { t } = useI18n();
+  const { t, tn } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [importando, setImportando] = useState(false);
-  const { data, isLoading, isError } = useQuery({ queryKey: ["books"], queryFn: () => api.books() });
+  const [panel, setPanel] = useState<"ninguno" | "importar" | "enlace">("ninguno");
+  const [filtros, setFiltros] = useState<BookFilters>({});
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["books", filtros],
+    queryFn: () => api.books(filtros),
+  });
+
+  // Los idiomas salen del propio catálogo: ofrecer francés sin libros en
+  // francés es un filtro que sólo sirve para no encontrar nada.
+  const idiomas = useQuery({ queryKey: ["books", "languages"], queryFn: () => api.bookLanguages() });
+
+  const hayFiltros = Object.values(filtros).some((v) => v && v !== "any");
+  const libros = data?.items ?? [];
 
   return (
     <Shell
@@ -208,9 +465,22 @@ export function Library() {
       subtitle={t("library.subtitle")}
       actions={
         user ? (
-          <Button variant="accent" icon="download" onClick={() => setImportando((v) => !v)}>
-            {t(importando ? "common.close" : "library.import")}
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              icon="plus"
+              onClick={() => setPanel((p) => (p === "enlace" ? "ninguno" : "enlace"))}
+            >
+              {t("link.add")}
+            </Button>
+            <Button
+              variant="accent"
+              icon="download"
+              onClick={() => setPanel((p) => (p === "importar" ? "ninguno" : "importar"))}
+            >
+              {t(panel === "importar" ? "common.close" : "library.import")}
+            </Button>
+          </>
         ) : (
           <Button variant="accent" onClick={() => navigate("/auth")}>
             {t("library.signInToImport")}
@@ -218,7 +488,18 @@ export function Library() {
         )
       }
     >
-      {importando && <PanelImportar />}
+      {panel === "importar" && <PanelImportar />}
+      {panel === "enlace" && <PanelEnlace onListo={() => setPanel("ninguno")} />}
+
+      {/* La barra sólo aparece cuando hay algo que filtrar. Con la biblioteca
+          vacía sería un control que no puede hacer nada. */}
+      {(libros.length > 0 || hayFiltros) && (
+        <BarraFiltros
+          filtros={filtros}
+          onCambiar={setFiltros}
+          idiomas={idiomas.data?.languages ?? []}
+        />
+      )}
 
       {isLoading ? (
         <div className="grid grid--books">
@@ -234,15 +515,22 @@ export function Library() {
         <Surface>
           <EmptyState icon="library" title={t("library.errorTitle")} body={t("common.checkApi")} />
         </Surface>
-      ) : !data || data.items.length === 0 ? (
+      ) : libros.length === 0 ? (
         <Surface>
+          {/* Dos vacíos distintos: no hay nada, o no hay nada CON ESTOS
+              filtros. Decir "biblioteca vacía" con un filtro puesto manda a
+              buscar un problema que no existe. */}
           <EmptyState
             icon="library"
-            title={t("library.emptyTitle")}
-            body={t("library.emptyBody")}
+            title={t(hayFiltros ? "library.noMatchesTitle" : "library.emptyTitle")}
+            body={t(hayFiltros ? "library.noMatchesBody" : "library.emptyBody")}
             action={
-              user ? (
-                <Button variant="accent" icon="download" onClick={() => setImportando(true)}>
+              hayFiltros ? (
+                <Button variant="soft" icon="close" onClick={() => setFiltros({})}>
+                  {t("library.clearFilters")}
+                </Button>
+              ) : user ? (
+                <Button variant="accent" icon="download" onClick={() => setPanel("importar")}>
                   {t("library.import")}
                 </Button>
               ) : undefined
@@ -250,20 +538,25 @@ export function Library() {
           />
         </Surface>
       ) : (
-        <div className="grid grid--books">
-          {data.items.map((b: Book) => (
-            <Link to={`/biblioteca/${b.id}`} key={b.id} className="book">
-              <Cover book={b} />
-              <div>
-                <div className="book__title">{b.title}</div>
-                <div className="book__author">
-                  {b.authors.length ? b.authors.join(", ") : t("common.unknownAuthor")}
+        <>
+          <p className="post__meta block-gap">
+            {tn(libros.length, "library.countOne", "library.countMany")}
+          </p>
+          <div className="grid grid--books">
+            {libros.map((b: Book) => (
+              <Link to={`/biblioteca/${b.id}`} key={b.id} className="book">
+                <Cover book={b} />
+                <div>
+                  <div className="book__title">{b.title}</div>
+                  <div className="book__author">
+                    {b.authors.length ? b.authors.join(", ") : t("common.unknownAuthor")}
+                  </div>
                 </div>
-              </div>
-              <Stars value={b.ratingAvg} />
-            </Link>
-          ))}
-        </div>
+                <Stars value={b.ratingAvg} />
+              </Link>
+            ))}
+          </div>
+        </>
       )}
     </Shell>
   );

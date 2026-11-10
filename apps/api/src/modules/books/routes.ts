@@ -16,17 +16,49 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { notFound, forbidden } from "../../lib/errors.js";
+import { notFound, forbidden, badRequest } from "../../lib/errors.js";
+import { prettifyZodError } from "../../lib/validation.js";
 import { presignDownload } from "../../lib/storage.js";
-import { listBooks, getBook, setShelf, importarLibroExterno } from "./service.js";
+import {
+  listBooks,
+  listBookLanguages,
+  getBook,
+  setShelf,
+  importarLibroExterno,
+  agregarLibroPorEnlace,
+} from "./service.js";
+import { booksQuery, linkBookBody } from "./schemas.js";
 import { buscarLibros, obtenerLibro } from "./gutendex.js";
 
 export const bookRoutes: FastifyPluginAsync = async (app) => {
   // Catálogo de libros.
   app.get("/books", async (req) => {
-    const q = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(req.query);
-    const items = await listBooks(app.db, q.limit);
+    const parsed = booksQuery.safeParse(req.query);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+    const items = await listBooks(app.db, parsed.data);
     return { items };
+  });
+
+  // Idiomas que existen de verdad en el catálogo, para poblar el filtro.
+  app.get("/books/languages", async () => {
+    const languages = await listBookLanguages(app.db);
+    return { languages };
+  });
+
+  /**
+   * Agregar un libro pegando sus enlaces.
+   *
+   * Pide sesión: queda registrado quién lo trajo (books.added_by). No es
+   * burocracia — un enlace a una obra protegida tiene que poder atribuirse a
+   * alguien, y quien lo sube declara de dónde salió en rightsNote.
+   */
+  app.post("/books/link", async (req, reply) => {
+    const session = app.requireAuth(req);
+    const parsed = linkBookBody.safeParse(req.body);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+
+    const { bookId } = await agregarLibroPorEnlace(app.db, session.userId, parsed.data);
+    return reply.code(201).send({ bookId });
   });
 
   // Detalle de un libro (autores, archivos, rating).

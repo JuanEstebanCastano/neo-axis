@@ -62,6 +62,27 @@ export interface Book {
   sourceUrl: string | null; rightsNote: string | null;
 }
 
+/** Filtros del catálogo. Todo opcional: sin nada, devuelve todo. */
+export interface BookFilters {
+  q?: string;
+  lang?: string;
+  source?: "any" | "gutendex" | "manual";
+  access?: "any" | "readable" | "downloadable";
+}
+
+/** Alta de un libro pegando sus enlaces. */
+export interface LinkBookInput {
+  title: string;
+  authors?: string[];
+  languageCode?: string;
+  publicationYear?: number;
+  coverUrl?: string;
+  readUrl?: string;
+  downloadUrl?: string;
+  sourceUrl?: string;
+  rightsNote: string;
+}
+
 /** Un resultado del catálogo externo, todavía sin importar. */
 export interface LibroExterno {
   provider: "gutendex"; externalId: string; title: string; authors: string[];
@@ -185,7 +206,20 @@ export const api = {
   ) =>
     req<{ item: CollectionItem }>(`/collections/${id}/items`, { method: "POST", body: JSON.stringify(b) }),
 
-  books: () => req<{ items: Book[] }>("/books"),
+  // Sin filtros devuelve todo, así que las pantallas que sólo quieren el
+  // catálogo (elegir un libro para una colección) siguen llamando sin nada.
+  books: (f: BookFilters = {}) => {
+    const qs = new URLSearchParams();
+    if (f.q) qs.set("q", f.q);
+    if (f.lang) qs.set("lang", f.lang);
+    if (f.source && f.source !== "any") qs.set("source", f.source);
+    if (f.access && f.access !== "any") qs.set("access", f.access);
+    const cola = qs.toString();
+    return req<{ items: Book[] }>("/books" + (cola ? "?" + cola : ""));
+  },
+  bookLanguages: () => req<{ languages: string[] }>("/books/languages"),
+  linkBook: (b: LinkBookInput) =>
+    req<{ bookId: string }>("/books/link", { method: "POST", body: JSON.stringify(b) }),
 
   // Catálogo externo: buscar en Project Gutenberg e importar a la biblioteca.
   searchExternalBooks: (q: string, lang?: string) => {

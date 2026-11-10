@@ -7,10 +7,11 @@
  * Dudas de vocabulario -> docs/01-glosario.md
  */
 
-import type { Database } from "@neoaxis/db";
+import type { Database, Transaction, DB } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
 import { notFound } from "../../lib/errors.js";
 import type { LibroExterno } from "./gutendex.js";
+import type { BooksQuery, LinkBookInput } from "./schemas.js";
 
 export interface BookCard {
   id: string;
@@ -27,7 +28,21 @@ export interface BookCard {
   rightsNote: string | null;
 }
 
-export async function listBooks(db: Database, limit: number): Promise<BookCard[]> {
+/**
+ * Escapa los comodines de LIKE en lo que escribe la persona.
+ *
+ * Sin esto, buscar "100%" casa con todo lo que empiece por "100", y un "_"
+ * casa con cualquier carácter. No es un agujero de seguridad —el valor va
+ * parametrizado, no concatenado— pero sí resultados que no se entienden.
+ */
+function comodines(texto: string): string {
+  return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+export async function listBooks(db: Database, filtros: BooksQuery): Promise<BookCard[]> {
+  const { limit, q, lang, source, access } = filtros;
+  const patron = q ? `%${comodines(q)}%` : null;
+
   const { rows } = await sql<BookCard>`
     SELECT b.id::text AS id, b.title,
           b.publication_year AS "publicationYear",
@@ -45,11 +60,54 @@ export async function listBooks(db: Database, limit: number): Promise<BookCard[]
     LEFT JOIN app.book_author_links bal ON bal.book_id = b.id
     LEFT JOIN app.book_authors ba ON ba.id = bal.author_id
     WHERE b.deleted_at IS NULL
+    -- El texto busca en el título Y en los autores. Los autores van por
+    -- EXISTS y no en este WHERE: filtrar sobre el JOIN que después se agrega
+    -- dejaría al libro con la lista de autores recortada a los que casaron.
+    ${
+      patron
+        ? sql`AND (
+            b.title ILIKE ${patron}
+            OR EXISTS (
+              SELECT 1 FROM app.book_author_links bal2
+              JOIN app.book_authors ba2 ON ba2.id = bal2.author_id
+              WHERE bal2.book_id = b.id AND ba2.name ILIKE ${patron}
+            )
+          )`
+        : sql``
+    }
+    ${lang ? sql`AND b.language_code = ${lang}` : sql``}
+    ${source === "gutendex" ? sql`AND b.external_provider = 'gutendex'` : sql``}
+    ${source === "manual" ? sql`AND b.added_by IS NOT NULL` : sql``}
+    ${access === "readable" ? sql`AND b.read_url IS NOT NULL` : sql``}
+    -- "Descargable" incluye los archivos que alojamos nosotros, no sólo el
+    -- enlace externo.
+    ${
+      access === "downloadable"
+        ? sql`AND (
+            b.download_url IS NOT NULL
+            OR EXISTS (SELECT 1 FROM app.book_files bf WHERE bf.book_id = b.id)
+          )`
+        : sql``
+    }
     GROUP BY b.id
     ORDER BY b.created_at DESC
     LIMIT ${limit}
   `.execute(db);
   return rows;
+}
+
+/**
+ * Idiomas presentes en el catálogo, para poblar el filtro sin inventarse una
+ * lista fija: si no hay libros en francés, no tiene sentido ofrecer francés.
+ */
+export async function listBookLanguages(db: Database): Promise<string[]> {
+  const { rows } = await sql<{ lang: string }>`
+    SELECT DISTINCT b.language_code AS lang
+    FROM app.books b
+    WHERE b.deleted_at IS NULL AND b.language_code IS NOT NULL
+    ORDER BY lang
+  `.execute(db);
+  return rows.map((r) => r.lang);
 }
 
 export async function getBook(db: Database, id: string) {
@@ -154,39 +212,97 @@ export async function importarLibroExterno(db: Database, libro: LibroExterno) {
       .returning(["id"])
       .executeTakeFirstOrThrow();
 
-    // Los autores se buscan por nombre: Gutendex no da un id estable para
-    // ellos, así que external_id queda nulo (el UNIQUE admite varios nulos).
-    let orden = 0;
-    for (const nombre of libro.authors) {
-      const limpio = nombre.trim().slice(0, 200);
-      if (!limpio) continue;
-
-      const existente = await trx
-        .selectFrom("bookAuthors")
-        .select(["id"])
-        .where("name", "=", limpio)
-        .executeTakeFirst();
-
-      const autorId =
-        existente?.id ??
-        (
-          await trx
-            .insertInto("bookAuthors")
-            .values({ name: limpio })
-            .returning(["id"])
-            .executeTakeFirstOrThrow()
-        ).id;
-
-      await trx
-        .insertInto("bookAuthorLinks")
-        .values({ bookId: book.id, authorId: autorId, authorOrder: orden })
-        .onConflict((oc) => oc.doNothing())
-        .execute();
-      orden += 1;
-    }
-
+    await vincularAutores(trx, book.id, libro.authors);
     return book.id;
   });
 
   return { bookId, yaExistia: false };
+}
+
+// ── Autores ───────────────────────────────────────────────────────────
+
+/**
+ * Enlaza los autores de un libro, creándolos si no existían.
+ *
+ * Se buscan por NOMBRE: ni Gutendex ni quien pega un enlace dan un id
+ * estable, así que `external_id` queda nulo (el UNIQUE admite varios nulos).
+ * Lo usan las dos vías de alta —importar y pegar enlace— y por eso vive acá y
+ * no dentro de ninguna de las dos.
+ */
+async function vincularAutores(
+  trx: Transaction<DB>,
+  bookId: string,
+  nombres: string[],
+): Promise<void> {
+  let orden = 0;
+  for (const nombre of nombres) {
+    const limpio = nombre.trim().slice(0, 200);
+    if (!limpio) continue;
+
+    const existente = await trx
+      .selectFrom("bookAuthors")
+      .select(["id"])
+      .where("name", "=", limpio)
+      .executeTakeFirst();
+
+    const autorId =
+      existente?.id ??
+      (
+        await trx
+          .insertInto("bookAuthors")
+          .values({ name: limpio })
+          .returning(["id"])
+          .executeTakeFirstOrThrow()
+      ).id;
+
+    await trx
+      .insertInto("bookAuthorLinks")
+      .values({ bookId, authorId: autorId, authorOrder: orden })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
+    orden += 1;
+  }
+}
+
+// ── Alta por enlace ───────────────────────────────────────────────────
+
+/**
+ * Agrega un libro a partir de los enlaces que pega una persona.
+ *
+ * Igual que la importación, NO alojamos nada: se guarda a dónde apunta. La
+ * diferencia es de dónde sale la responsabilidad. En Gutendex la procedencia
+ * la respalda la fuente; acá la pone quien sube el enlace, y por eso quedan
+ * registrados `added_by` y su declaración de derechos.
+ *
+ * `external_provider = 'manual'` con `external_id` nulo: el UNIQUE sobre el
+ * par admite varios nulos, así que no hay choque entre libros manuales.
+ */
+export async function agregarLibroPorEnlace(
+  db: Database,
+  userId: string,
+  datos: LinkBookInput,
+) {
+  const bookId = await db.transaction().execute(async (trx) => {
+    const book = await trx
+      .insertInto("books")
+      .values({
+        externalProvider: "manual",
+        addedBy: userId,
+        title: datos.title.slice(0, 500),
+        publicationYear: datos.publicationYear ?? null,
+        coverUrl: datos.coverUrl ?? null,
+        languageCode: datos.languageCode?.slice(0, 10) ?? null,
+        readUrl: datos.readUrl ?? null,
+        downloadUrl: datos.downloadUrl ?? null,
+        sourceUrl: datos.sourceUrl ?? null,
+        rightsNote: datos.rightsNote.slice(0, 200),
+      })
+      .returning(["id"])
+      .executeTakeFirstOrThrow();
+
+    await vincularAutores(trx, book.id, datos.authors);
+    return book.id;
+  });
+
+  return { bookId };
 }

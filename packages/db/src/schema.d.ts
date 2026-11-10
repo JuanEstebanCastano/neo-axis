@@ -526,6 +526,10 @@ export interface BookReviews {
 }
 
 export interface Books {
+  /**
+   * Quién agregó el libro. NULL si vino de una importación automática.
+   */
+  addedBy: string | null;
   coverUrl: string | null;
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
@@ -545,7 +549,7 @@ export interface Books {
    */
   readUrl: string | null;
   /**
-   * Que declara la fuente sobre los derechos. Es lo que dice la fuente, no un dictamen legal nuestro.
+   * Qué declara la fuente sobre los derechos (p. ej. "Public domain in the USA"). Es lo que dice la fuente, no un dictamen legal nuestro.
    */
   rightsNote: string | null;
   /**
