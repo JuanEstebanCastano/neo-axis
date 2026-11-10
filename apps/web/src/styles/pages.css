@@ -739,3 +739,11 @@
 .gh-panel {
   margin-top: var(--sp-7);
 }
+
+/* Panel para guardar un snippet en una colección. Se abre en el pie de la
+   tarjeta, así que ocupa el ancho y se despega de los botones de al lado. */
+.save-box {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: var(--sp-2);
+}

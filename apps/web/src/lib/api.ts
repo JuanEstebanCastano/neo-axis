@@ -154,7 +154,23 @@ export const api = {
     req<{ collection: Collection & { items: CollectionItem[] } }>(`/collections/${id}`),
   createCollection: (b: { title: string; description?: string; visibility?: string }) =>
     req<{ collection: Collection }>("/collections", { method: "POST", body: JSON.stringify(b) }),
-  addItem: (id: string, b: { itemType: string; bookId?: string; postId?: string; note?: string }) =>
+  /**
+   * Agregar un ítem a una colección. Los cuatro tipos que acepta el servidor
+   * (ver collections/schemas.ts) tienen que existir también acá: faltaban
+   * snippetId y repositoryId, y por eso desde la pantalla sólo se podían
+   * agregar libros aunque la API soportara los demás desde el primer día.
+   */
+  addItem: (
+    id: string,
+    b: {
+      itemType: "book" | "repository" | "snippet" | "post";
+      bookId?: string;
+      repositoryId?: string;
+      snippetId?: string;
+      postId?: string;
+      note?: string;
+    },
+  ) =>
     req<{ item: CollectionItem }>(`/collections/${id}/items`, { method: "POST", body: JSON.stringify(b) }),
 
   books: () => req<{ items: Book[] }>("/books"),

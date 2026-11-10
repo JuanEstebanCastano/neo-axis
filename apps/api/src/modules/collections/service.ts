@@ -14,7 +14,7 @@
 
 import type { Database } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
-import { notFound, forbidden, badRequest } from "../../lib/errors.js";
+import { notFound, forbidden, badRequest, conflict } from "../../lib/errors.js";
 import { canViewPost } from "../../lib/rbac.js";
 
 export type CollectionItemType = "book" | "repository" | "snippet" | "post";
@@ -100,22 +100,40 @@ export async function addCollectionItem(db: Database, input: AddItemInput) {
       .where("id", "=", targetId).executeTakeFirst();
     if (!r) throw notFound("El repositorio no existe");
   } else {
-    const s = await db.selectFrom("postSnippets").select("id")
+    // Un snippet es una vista sobre un post y hereda su visibilidad. Mirar
+    // sólo post_snippets dejaba un hueco: con el UUID a mano se podía citar
+    // en una colección el snippet de un post retirado, oculto o restringido,
+    // y su título volvía a aparecer. El tipo "post" ya se validaba así.
+    const s = await db.selectFrom("postSnippets").select(["id", "postId"])
       .where("id", "=", targetId).executeTakeFirst();
     if (!s) throw notFound("El snippet no existe");
+    if (!(await canViewPost(db, s.postId, input.actorId))) {
+      throw notFound("El snippet no existe o no tenés acceso");
+    }
   }
 
-  return db
-    .insertInto("collectionItems")
-    .values({
-      collectionId: input.collectionId,
-      itemType: input.itemType,
-      ...itemColumns(input.itemType, targetId),
-      note: input.note ?? null,
-      sortOrder: input.sortOrder ?? 0,
-    })
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  try {
+    return await db
+      .insertInto("collectionItems")
+      .values({
+        collectionId: input.collectionId,
+        itemType: input.itemType,
+        ...itemColumns(input.itemType, targetId),
+        note: input.note ?? null,
+        sortOrder: input.sortOrder ?? 0,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  } catch (err) {
+    // Hay un índice único por (colección, ítem) para cada tipo. Sin esto, el
+    // choque salía como 500 "Error interno" y la persona no se enteraba de
+    // que el ítem ya estaba ahí; agregar dos veces lo mismo es un desliz
+    // normal, no un fallo del servidor.
+    if ((err as { code?: string }).code === "23505") {
+      throw conflict("Ese ítem ya está en la colección");
+    }
+    throw err;
+  }
 }
 
 export async function removeCollectionItem(

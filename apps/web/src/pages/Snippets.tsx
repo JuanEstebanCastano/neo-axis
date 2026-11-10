@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
-import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState, Badge } from "../components/ui";
+import { Surface, Button, Field, Input, Select, Textarea, Skeleton, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/Icon";
 import { api, apiUrl, type Snippet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -245,6 +245,123 @@ function AccionesGithub({ snippet }: { snippet: Snippet }) {
   );
 }
 
+// ── Guardar un snippet en una colección ───────────────────────────────
+
+/**
+ * El atajo que le da sentido a la sección: estás mirando un fragmento y lo
+ * guardas en una de tus rutas sin salir de acá. Antes había que ir a
+ * Colecciones, abrir la correcta y buscarlo en un desplegable; y ni siquiera
+ * eso, porque el formulario sólo aceptaba libros.
+ */
+function GuardarEnColeccion({ snippet }: { snippet: Snippet }) {
+  const qc = useQueryClient();
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const [abierto, setAbierto] = useState(false);
+  const [destino, setDestino] = useState("");
+
+  // Sólo las propias: el servidor exige ser dueño para agregar un ítem.
+  const mias = useQuery({
+    queryKey: ["collections", user?.id],
+    queryFn: () => api.collections(user!.id),
+    enabled: abierto && !!user,
+  });
+
+  const guardar = useMutation({
+    mutationFn: () => api.addItem(destino, { itemType: "snippet", snippetId: snippet.id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["collection", destino] }),
+  });
+
+  const colecciones = mias.data?.items ?? [];
+  const elegida = colecciones.find((c) => c.id === destino);
+
+  if (!user) return null;
+
+  if (!abierto)
+    return (
+      <Button variant="ghost" icon="collections" onClick={() => setAbierto(true)}>
+        {t("save.toCollection")}
+      </Button>
+    );
+
+  return (
+    <div className="save-box">
+      {mias.isLoading ? (
+        <Skeleton h={44} r={14} />
+      ) : colecciones.length === 0 ? (
+        <div className="stack stack--sm">
+          <strong>{t("save.noneTitle")}</strong>
+          <p className="post__meta measure">{t("save.noneBody")}</p>
+          <Link className="btn btn--accent" to="/colecciones">
+            {t("save.create")}
+          </Link>
+        </div>
+      ) : guardar.isSuccess ? (
+        // Tras guardar queda el aviso, el enlace a la colección y la salida.
+        // Sin "guardar en otra", el panel se quedaba congelado en el éxito y
+        // no había forma de mandar el mismo snippet a una segunda ruta.
+        <div className="row row--sm">
+          <p className="result-line result-line--ok grow" role="status">
+            <Icon name="check" size={14} />
+            {t("save.done", { title: elegida?.title ?? "" })}
+            <Link to={"/colecciones/" + destino}>{t("collections.viewAll")}</Link>
+          </p>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              guardar.reset();
+              setDestino("");
+            }}
+          >
+            {t("save.another")}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              guardar.reset();
+              setDestino("");
+              setAbierto(false);
+            }}
+          >
+            {t("common.close")}
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="row row--end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (destino) guardar.mutate();
+          }}
+        >
+          <Field label={t("save.choose")} className="col col--lg">
+            <Select value={destino} onChange={(e) => setDestino(e.target.value)} required>
+              <option value="">{t("save.chooseOne")}</option>
+              {colecciones.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button variant="accent" type="submit" loading={guardar.isPending} disabled={!destino}>
+            {t("save.confirm")}
+          </Button>
+          <Button variant="ghost" onClick={() => setAbierto(false)}>
+            {t("save.cancel")}
+          </Button>
+        </form>
+      )}
+
+      {guardar.isError && (
+        <p className="field__error" role="alert">
+          {t("save.failed")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Formulario de alta ────────────────────────────────────────────────
 
 function ShareForm({ onClose }: { onClose: () => void }) {
@@ -467,6 +584,7 @@ export function Snippets() {
                         {t(historial === s.id ? "snippets.hideHistory" : "snippets.history")}
                       </Button>
                     )}
+                    <GuardarEnColeccion snippet={s} />
                   </div>
                   {esMio && <AccionesGithub snippet={s} />}
                 </div>
