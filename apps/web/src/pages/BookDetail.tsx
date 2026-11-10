@@ -145,7 +145,54 @@ export function BookDetail() {
 
             <section className="detail__block">
               <h3>{t("book.formats")}</h3>
-              {book.files && book.files.length > 0 ? (
+
+              {/* Dos orígenes distintos, y conviene que se note cuál es cuál.
+                  `files` son archivos nuestros, que se bajan con una URL
+                  firmada. `readUrl`/`downloadUrl` viven en la fuente externa:
+                  guardamos el enlace, no el archivo. */}
+              {book.readUrl || book.downloadUrl ? (
+                <div className="stack stack--sm">
+                  <div className="ext-actions">
+                    {book.readUrl && (
+                      <a
+                        className="btn btn--accent"
+                        href={book.readUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        <Icon name="book" size={18} />
+                        <span className="btn__label">{t("book.read")}</span>
+                      </a>
+                    )}
+                    {book.downloadUrl && (
+                      <a
+                        className="btn btn--soft"
+                        href={book.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        <Icon name="download" size={18} />
+                        <span className="btn__label">{t("book.download")}</span>
+                      </a>
+                    )}
+                    {book.sourceUrl && (
+                      <a
+                        className="btn btn--ghost"
+                        href={book.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        <Icon name="external" size={18} />
+                        <span className="btn__label">{t("book.source")}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {book.rightsNote && (
+                    <p className="book__author measure">{t("book.rights", { note: book.rightsNote })}</p>
+                  )}
+                </div>
+              ) : book.files && book.files.length > 0 ? (
                 <div className="row row--sm">
                   {book.files.map((f) => (
                     <Button key={f.id} variant="soft" icon="download" onClick={() => download(f.id)}>

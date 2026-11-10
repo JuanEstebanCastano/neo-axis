@@ -10,6 +10,7 @@
 import type { Database } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
 import { notFound } from "../../lib/errors.js";
+import type { LibroExterno } from "./gutendex.js";
 
 export interface BookCard {
   id: string;
@@ -19,6 +20,11 @@ export interface BookCard {
   languageCode: string | null;
   authors: string[];
   ratingAvg: number | null;
+  /** Enlaces a la fuente externa. Nulos en los libros que alojamos nosotros. */
+  readUrl: string | null;
+  downloadUrl: string | null;
+  sourceUrl: string | null;
+  rightsNote: string | null;
 }
 
 export async function listBooks(db: Database, limit: number): Promise<BookCard[]> {
@@ -27,6 +33,10 @@ export async function listBooks(db: Database, limit: number): Promise<BookCard[]
           b.publication_year AS "publicationYear",
           b.cover_url AS "coverUrl",
           b.language_code AS "languageCode",
+          b.read_url AS "readUrl",
+          b.download_url AS "downloadUrl",
+          b.source_url AS "sourceUrl",
+          b.rights_note AS "rightsNote",
           COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
           (SELECT round(avg(rating)::numeric, 1)
               FROM app.book_reviews r
@@ -48,6 +58,10 @@ export async function getBook(db: Database, id: string) {
           b.publication_year AS "publicationYear",
           b.cover_url AS "coverUrl",
           b.language_code AS "languageCode",
+          b.read_url AS "readUrl",
+          b.download_url AS "downloadUrl",
+          b.source_url AS "sourceUrl",
+          b.rights_note AS "rightsNote",
           COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
           (SELECT round(avg(rating)::numeric, 1)
               FROM app.book_reviews r
@@ -94,4 +108,85 @@ export async function setShelf(
           ),
           updated_at = now()
   `.execute(db);
+}
+
+// ── Importar del catálogo externo ─────────────────────────────────────
+
+/**
+ * Trae un libro de Gutendex a nuestra biblioteca.
+ *
+ * NO copia el archivo: guarda los enlaces a donde ya está publicado, más la
+ * ficha de origen y lo que la fuente declara sobre derechos. Por eso no toca
+ * book_files, que es para lo que alojamos nosotros.
+ *
+ * Es idempotente: si el libro ya se importó, devuelve el que hay en vez de
+ * duplicarlo. El UNIQUE (external_provider, external_id) lo respalda, pero se
+ * comprueba antes para poder decir "ya estaba" en vez de fallar.
+ */
+export async function importarLibroExterno(db: Database, libro: LibroExterno) {
+  const yaEsta = await db
+    .selectFrom("books")
+    .select(["id"])
+    .where("externalProvider", "=", libro.provider)
+    .where("externalId", "=", libro.externalId)
+    .where("deletedAt", "is", null)
+    .executeTakeFirst();
+
+  if (yaEsta) return { bookId: yaEsta.id, yaExistia: true };
+
+  const bookId = await db.transaction().execute(async (trx) => {
+    const book = await trx
+      .insertInto("books")
+      .values({
+        externalProvider: libro.provider,
+        externalId: libro.externalId,
+        title: libro.title.slice(0, 500),
+        publicationYear: libro.publicationYear,
+        coverUrl: libro.coverUrl,
+        // El primero de la lista: la columna guarda un idioma, y Gutendex
+        // devuelve un arreglo porque hay ediciones bilingües.
+        languageCode: libro.languages[0]?.slice(0, 10) ?? null,
+        readUrl: libro.readUrl,
+        downloadUrl: libro.downloadUrl,
+        sourceUrl: libro.sourceUrl,
+        rightsNote: libro.rightsNote.slice(0, 200),
+      })
+      .returning(["id"])
+      .executeTakeFirstOrThrow();
+
+    // Los autores se buscan por nombre: Gutendex no da un id estable para
+    // ellos, así que external_id queda nulo (el UNIQUE admite varios nulos).
+    let orden = 0;
+    for (const nombre of libro.authors) {
+      const limpio = nombre.trim().slice(0, 200);
+      if (!limpio) continue;
+
+      const existente = await trx
+        .selectFrom("bookAuthors")
+        .select(["id"])
+        .where("name", "=", limpio)
+        .executeTakeFirst();
+
+      const autorId =
+        existente?.id ??
+        (
+          await trx
+            .insertInto("bookAuthors")
+            .values({ name: limpio })
+            .returning(["id"])
+            .executeTakeFirstOrThrow()
+        ).id;
+
+      await trx
+        .insertInto("bookAuthorLinks")
+        .values({ bookId: book.id, authorId: autorId, authorOrder: orden })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+      orden += 1;
+    }
+
+    return book.id;
+  });
+
+  return { bookId, yaExistia: false };
 }

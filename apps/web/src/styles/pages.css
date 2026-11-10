@@ -747,3 +747,18 @@
   min-width: 0;
   margin-top: var(--sp-2);
 }
+
+/* Etiquetas bajo el título de un resultado del catálogo externo: qué se puede
+   hacer con él (leer, descargar) y en qué idiomas está. */
+.item-row__tags {
+  margin-top: 6px;
+}
+
+/* Lo que se puede hacer con un libro que vive en otra parte: leerlo,
+   descargarlo o ir a su ficha de origen. */
+.ext-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}

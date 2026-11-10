@@ -14,6 +14,7 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 07 | [Despliegue](07-despliegue.md) | Subir API y frontend a producción |
 | 08 | [Snippets](08-github-snippets.md) | Qué es el muro de código, y cómo versionarlo con gists |
 | 09 | [Repositorios de GitHub](09-github-repositorios.md) | Ver y escribir archivos de tus repos desde Neo Axis |
+| 10 | [Catálogo externo](10-catalogo-externo.md) | Traer libros de dominio público, y por qué cómics y manga no |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.

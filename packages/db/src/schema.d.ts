@@ -529,6 +529,10 @@ export interface Books {
   coverUrl: string | null;
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
+  /**
+   * Enlace al archivo en la fuente externa (EPUB/PDF). No es un archivo nuestro.
+   */
+  downloadUrl: string | null;
   externalId: string | null;
   externalProvider: string | null;
   id: Generated<string>;
@@ -536,6 +540,18 @@ export interface Books {
   languageCode: string | null;
   publicationYear: number | null;
   publisherId: string | null;
+  /**
+   * Enlace de lectura en la fuente externa. No es un archivo nuestro.
+   */
+  readUrl: string | null;
+  /**
+   * Que declara la fuente sobre los derechos. Es lo que dice la fuente, no un dictamen legal nuestro.
+   */
+  rightsNote: string | null;
+  /**
+   * Ficha del libro en la fuente, para poder verificar la procedencia.
+   */
+  sourceUrl: string | null;
   title: string;
   updatedAt: Generated<Timestamp>;
 }

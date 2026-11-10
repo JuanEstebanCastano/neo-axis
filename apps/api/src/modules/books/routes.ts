@@ -18,7 +18,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { notFound, forbidden } from "../../lib/errors.js";
 import { presignDownload } from "../../lib/storage.js";
-import { listBooks, getBook, setShelf } from "./service.js";
+import { listBooks, getBook, setShelf, importarLibroExterno } from "./service.js";
+import { buscarLibros, obtenerLibro } from "./gutendex.js";
 
 export const bookRoutes: FastifyPluginAsync = async (app) => {
   // Catálogo de libros.
@@ -33,6 +34,41 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     const book = await getBook(app.db, id);
     return { book };
+  });
+
+  // ── Catálogo externo (Project Gutenberg vía Gutendex) ───────────────
+  //
+  // Las dos piden sesión. Buscar no cambia nada nuestro, pero sin sesión el
+  // API quedaría de proxy gratuito hacia un servicio que no es nuestro, y
+  // quien se lleva el tráfico ajeno es Gutendex.
+
+  app.get("/books/external/search", async (req) => {
+    app.requireAuth(req);
+    const q = z
+      .object({
+        q: z.string().trim().min(2).max(120),
+        // Código de dos letras, como los que devuelve la fuente.
+        lang: z.string().trim().length(2).optional(),
+      })
+      .parse(req.query);
+
+    const items = await buscarLibros(q.q, q.lang);
+    return { items };
+  });
+
+  app.post("/books/external/import", async (req, reply) => {
+    app.requireAuth(req);
+    const body = z
+      .object({ provider: z.literal("gutendex"), externalId: z.coerce.number().int().positive() })
+      .parse(req.body);
+
+    // El libro se vuelve a pedir a la fuente en vez de confiar en lo que
+    // mande el cliente: así el título, los enlaces y la nota de derechos
+    // salen siempre de Gutendex y no de quien llama.
+    const libro = await obtenerLibro(body.externalId);
+    const { bookId, yaExistia } = await importarLibroExterno(app.db, libro);
+
+    return reply.code(yaExistia ? 200 : 201).send({ bookId, yaExistia });
   });
 
   // Estantería del usuario: marcar quiero leer / leyendo / leído.
