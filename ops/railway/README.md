@@ -38,6 +38,11 @@ Mismas que `.env.example`, pero cargadas en el panel de cada servicio:
   `SESSION_COOKIE_NAME`, `SESSION_TTL_DAYS`, `SESSION_SECRET`, `S3_*` (Supabase Storage),
   `EMBEDDINGS_URL`, `EMBEDDINGS_TOKEN`, (opc.) OAuth. **No** setees `API_PORT`: Railway
   inyecta `PORT` y la api ya escucha en `process.env.PORT`.
+  (opc.) GitHub: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`,
+  `TOKEN_ENCRYPTION_KEY`. Las cuatro o ninguna: a medias el API no arranca. El
+  callback va contra el dominio del **api**, no el del front:
+  `https://<dominio-api>/api/v1/github/callback`, y tiene que coincidir carácter
+  por carácter con la OAuth App (ver `docs/08-github-snippets.md`).
 - **worker**: `DATABASE_URL`, `SMTP_*`, `MAIL_FROM`, `WORKER_*`.
 
 El `CORS` del front: `PUBLIC_WEB_ORIGIN` = dominio de prod de Vercel; los previews se

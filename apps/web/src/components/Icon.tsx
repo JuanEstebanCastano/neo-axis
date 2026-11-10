@@ -20,6 +20,9 @@ const paths: Record<string, JSX.Element> = {
   arrow: <><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></>,
   check: <path d="m5 12 5 5L20 7" />,
   back: <><path d="M19 12H5" /><path d="m11 6-6 6 6 6" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" /></>,
+  sync: <><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8" /><path d="M20 4v4h-4" /><path d="M20 12a8 8 0 0 1-13.7 5.7L4 16" /><path d="M4 20v-4h4" /></>,
+  external: <><path d="M14 4h6v6" /><path d="M20 4 10 14" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>,
 };
 
 export type IconName = keyof typeof paths;

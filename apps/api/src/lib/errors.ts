@@ -29,3 +29,7 @@ export const forbidden = (msg = "Sin permisos suficientes") => new AppError(403,
 export const notFound = (msg = "Recurso no encontrado") => new AppError(404, "not_found", msg);
 export const conflict = (msg: string) => new AppError(409, "conflict", msg);
 export const badRequest = (msg: string) => new AppError(400, "bad_request", msg);
+/** 429: nos frenó un límite de uso, propio o de un tercero. */
+export const tooManyRequests = (msg: string) => new AppError(429, "too_many_requests", msg);
+/** 503: un servicio externo del que dependemos (hoy GitHub) no está disponible. */
+export const serviceUnavailable = (msg: string) => new AppError(503, "service_unavailable", msg);

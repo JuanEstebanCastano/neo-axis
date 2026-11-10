@@ -28,6 +28,7 @@ import { collectionRoutes } from "./modules/collections/routes.js";
 import { bookRoutes } from "./modules/books/routes.js";
 import { recommendationRoutes } from "./modules/recommendations/routes.js";
 import { snippetRoutes } from "./modules/snippets/routes.js";
+import { githubRoutes } from "./modules/github/routes.js";
 import { ZodError } from "zod";
 import { AppError, badRequest } from "./lib/errors.js";
 import { prettifyZodError } from "./lib/validation.js";
@@ -116,6 +117,7 @@ await app.register(async (api) => {
   await api.register(bookRoutes);
   await api.register(recommendationRoutes);
   await api.register(snippetRoutes);
+  await api.register(githubRoutes);
 }, { prefix: "/api/v1" });
 
 app.get("/health", async () => ({ status: "ok", uptime: process.uptime() }));

@@ -367,15 +367,6 @@ export interface AuthSessions {
   userId: string;
 }
 
-export interface PasswordResetTokens {
-  createdAt: Generated<Timestamp>;
-  expiresAt: Timestamp;
-  id: Generated<string>;
-  tokenHash: Buffer;
-  usedAt: Timestamp | null;
-  userId: string;
-}
-
 export interface AuthSessions2 {
   aal: AuthAalLevel | null;
   createdAt: Timestamp | null;
@@ -699,6 +690,21 @@ export interface ExtensionsPgStatStatementsInfo {
   statsReset: Timestamp | null;
 }
 
+export interface GithubConnections {
+  accessTokenEnc: Buffer;
+  accessTokenExpiresAt: Timestamp | null;
+  connectedAt: Generated<Timestamp>;
+  githubAvatarUrl: string | null;
+  githubLogin: string;
+  githubUserId: Int8;
+  id: Generated<string>;
+  refreshTokenEnc: Buffer | null;
+  refreshTokenExpiresAt: Timestamp | null;
+  scopes: Generated<string>;
+  updatedAt: Generated<Timestamp>;
+  userId: string;
+}
+
 export interface GithubRepositories {
   canonicalUrl: string;
   createdAt: Generated<Timestamp>;
@@ -747,6 +753,15 @@ export interface Notifications {
   readAt: Timestamp | null;
   recipientUserId: string;
   type: NotificationType;
+}
+
+export interface PasswordResetTokens {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  tokenHash: Buffer;
+  usedAt: Timestamp | null;
+  userId: string;
 }
 
 export interface Permissions {
@@ -840,6 +855,12 @@ export interface PostSnippets {
   createdAt: Generated<Timestamp>;
   description: string | null;
   filename: string | null;
+  gistHtmlUrl: string | null;
+  gistId: string | null;
+  gistOwnerLogin: string | null;
+  gistPublic: Generated<boolean>;
+  gistRevisionSha: string | null;
+  gistSyncedAt: Timestamp | null;
   id: Generated<string>;
   language: string;
   languageVersion: string | null;
@@ -1211,16 +1232,17 @@ export interface DB {
   commentMentions: CommentMentions;
   comments: Comments;
   emailNotificationQueue: EmailNotificationQueue;
-  passwordResetTokens: PasswordResetTokens;
   eventAllowedRoles: EventAllowedRoles;
   eventAllowedUsers: EventAllowedUsers;
   eventRegistrations: EventRegistrations;
   "extensions.pgStatStatements": ExtensionsPgStatStatements;
   "extensions.pgStatStatementsInfo": ExtensionsPgStatStatementsInfo;
+  githubConnections: GithubConnections;
   githubRepositories: GithubRepositories;
   mediaAssets: MediaAssets;
   moderationReports: ModerationReports;
   notifications: Notifications;
+  passwordResetTokens: PasswordResetTokens;
   permissions: Permissions;
   postAllowedRoles: PostAllowedRoles;
   postAllowedUsers: PostAllowedUsers;

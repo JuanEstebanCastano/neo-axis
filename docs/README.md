@@ -12,6 +12,7 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 05 | [Decisiones](05-decisiones.md) | Por qué se eligió cada herramienta |
 | 06 | [Propuesta de evolución](06-propuesta-evolucion.md) | Hacia dónde crece: colecciones, biblioteca real y recomendaciones |
 | 07 | [Despliegue](07-despliegue.md) | Subir API y frontend a producción |
+| 08 | [Snippets con GitHub](08-github-snippets.md) | Publicar snippets como gists y versionarlos |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.

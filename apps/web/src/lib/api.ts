@@ -7,6 +7,9 @@
 // Se normaliza quitando la barra final para no generar "//api/v1".
 const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "") + "/api/v1";
 
+/** Dirección absoluta de una ruta del API. Para navegaciones, no para fetch. */
+export const apiUrl = (path: string) => BASE + path;
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
     super(message);
@@ -58,6 +61,27 @@ export interface RecoHit { entityType: string; entityId: string; title: string |
 export interface Snippet {
   id: string; postId: string; title: string; language: string; filename: string | null;
   sourceCode: string; createdAt: string; authorUsername: string; authorDisplayName: string;
+  // Presentes sólo si el snippet está publicado como gist en GitHub.
+  gistId: string | null; gistHtmlUrl: string | null;
+  gistOwnerLogin: string | null; gistSyncedAt: string | null;
+}
+/** La cuenta de GitHub que el usuario conectó. El token nunca llega acá. */
+export interface GithubConnection {
+  login: string; avatarUrl: string | null; scopes: string[]; connectedAt: string;
+}
+/** Una revisión del gist: un "commit" del historial. */
+export interface SnippetRevision {
+  sha: string; committedAt: string; authorLogin: string | null; authorAvatarUrl: string | null;
+  additions: number | null; deletions: number | null; total: number | null;
+}
+export interface RevisionFile {
+  filename: string; language: string | null; size: number; truncated: boolean; content: string | null;
+}
+export interface RevisionDetail { sha: string; committedAt: string; files: RevisionFile[] }
+export interface GistInfo {
+  gistId: string; gistHtmlUrl: string; gistOwnerLogin: string | null;
+  gistRevisionSha: string | null; gistPublic: boolean;
+  files: { filename: string; language: string | null; size: number }[];
 }
 export interface Profile {
   id: string; username: string; displayName: string; email: string;
@@ -123,6 +147,32 @@ export const api = {
   snippets: () => req<{ items: Snippet[] }>("/snippets"),
   createSnippet: (b: { title: string; language: string; sourceCode: string; filename?: string }) =>
     req<{ snippet: Snippet }>("/snippets", { method: "POST", body: JSON.stringify(b) }),
+  updateSnippet: (
+    id: string,
+    b: { title?: string; language?: string; sourceCode?: string; filename?: string | null },
+  ) => req<{ snippet: Snippet }>(`/snippets/${id}`, { method: "PUT", body: JSON.stringify(b) }),
+
+  // ── GitHub: control de versiones de los snippets ──
+  githubStatus: () =>
+    req<{ enabled: boolean; connection: GithubConnection | null }>("/github/status"),
+  githubDisconnect: () => req<{ ok: boolean }>("/github/connection", { method: "DELETE" }),
+  /** Publica el snippet como gist en la cuenta de GitHub del autor. */
+  publishSnippetAsGist: (id: string, isPublic: boolean) =>
+    req<{ gist: GistInfo }>(`/snippets/${id}/gist`, {
+      method: "POST",
+      body: JSON.stringify({ public: isPublic }),
+    }),
+  /** Corta el vínculo. El gist sigue existiendo en GitHub. */
+  unlinkGist: (id: string) => req<{ ok: boolean }>(`/snippets/${id}/gist`, { method: "DELETE" }),
+  /** Trae desde GitHub la última versión del gist. */
+  syncSnippet: (id: string) =>
+    req<{ snippet: Snippet }>(`/snippets/${id}/sync`, { method: "POST", body: "{}" }),
+  snippetRevisions: (id: string) =>
+    req<{ revisions: SnippetRevision[] }>(`/snippets/${id}/revisions`),
+  snippetRevision: (id: string, sha: string) =>
+    req<{ revision: RevisionDetail }>(`/snippets/${id}/revisions/${sha}`),
+  importGist: (gist: string) =>
+    req<{ snippet: Snippet }>("/snippets/import", { method: "POST", body: JSON.stringify({ gist }) }),
 
   // ── Perfil ──
   profile: () => req<MeFull>("/users/me"),
