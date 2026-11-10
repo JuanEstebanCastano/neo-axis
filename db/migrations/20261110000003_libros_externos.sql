@@ -14,16 +14,20 @@
 --   download_url -> el archivo (EPUB, PDF)
 -- Son enlaces externos, así que ninguna reemplaza a book_files: un libro
 -- puede tener las dos cosas, o sólo una.
+-- IF NOT EXISTS en el `up`, igual que el `down` usa IF EXISTS: la migración
+-- queda simétrica y se puede re-aplicar sin romper. En una base donde las
+-- columnas ya estaban, `dbmate up` la da por buena y registra la versión, que
+-- es como se repara el desfase sin escribir a mano en schema_migrations.
 ALTER TABLE app.books
-  ADD COLUMN read_url text,
-  ADD COLUMN download_url text;
+  ADD COLUMN IF NOT EXISTS read_url text,
+  ADD COLUMN IF NOT EXISTS download_url text;
 
 -- De dónde salió y bajo qué condiciones, para poder responder "¿por qué
 -- este libro está acá?" sin tener que adivinarlo. external_provider ya
 -- existía; esto es lo que faltaba para que el dato sea auditable.
 ALTER TABLE app.books
-  ADD COLUMN source_url text,
-  ADD COLUMN rights_note varchar(200);
+  ADD COLUMN IF NOT EXISTS source_url text,
+  ADD COLUMN IF NOT EXISTS rights_note varchar(200);
 
 COMMENT ON COLUMN app.books.read_url IS
   'Enlace de lectura en la fuente externa. No es un archivo nuestro.';
