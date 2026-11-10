@@ -25,7 +25,9 @@
  * Dudas de vocabulario -> docs/01-glosario.md
  */
 
-import { badRequest, notFound, serviceUnavailable } from "../../lib/errors.js";
+import { z } from "zod";
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from "../../lib/errors.js";
+import { prettifyZodError } from "../../lib/validation.js";
 
 const API_BASE = "https://gutendex.com";
 
@@ -38,33 +40,43 @@ const USER_AGENT = "neo-axis-app";
 const TIMEOUT_MS = 10_000;
 
 // ── La parte de Gutendex que usamos ───────────────────────────────────
+//
+// Esto es un CONTRATO CON UN TERCERO, no nuestro: la forma la decide Gutendex
+// y puede cambiar sin avisarnos. Por eso se valida con zod en vez de castear
+// la respuesta con `as`, que no comprueba nada en ejecución.
+//
+// El criterio: estricto en lo que necesitamos, indulgente en lo demás.
+//   · `id`, `title` y `copyright` son obligatorios: sin ellos no se puede ni
+//     identificar el libro ni decidir si es legal traerlo.
+//   · Las listas y `formats` caen a vacío si faltan o vienen con otra forma
+//     (`.catch`), porque un libro sin autores anotados sigue siendo utilizable
+//     y un libro sin formatos se descarta después, con su propio mensaje.
+// Los campos que no usamos (summaries, translators, media_type…) ni se
+// declaran: zod los ignora y así un campo nuevo de Gutendex no nos rompe.
 
-interface GutendexPerson {
-  name: string;
-  birth_year: number | null;
-  death_year: number | null;
-}
+const personaSchema = z.object({
+  name: z.string(),
+  death_year: z.number().int().nullish(),
+});
 
-interface GutendexBook {
-  id: number;
-  title: string;
-  authors: GutendexPerson[];
-  translators: GutendexPerson[];
-  subjects: string[];
-  bookshelves: string[];
-  languages: string[];
-  copyright: boolean | null;
-  media_type: string;
-  formats: Record<string, string>;
-  download_count: number;
-}
+const libroSchema = z.object({
+  id: z.number().int().positive(),
+  title: z.string(),
+  // Único campo del que depende la decisión legal. Si no viene booleano ni
+  // null, NO lo damos por bueno: `obtenerLibro` exige `=== false`.
+  copyright: z.boolean().nullable(),
+  authors: z.array(personaSchema).catch([]),
+  languages: z.array(z.string()).catch([]),
+  // Claves y valores son strings (MIME -> URL). Un valor que no sea string
+  // tiraría la entrada entera, así que se filtra por fuera, en `formato()`.
+  formats: z.record(z.string(), z.string()).catch({}),
+  download_count: z.number().int().nonnegative().catch(0),
+});
 
-interface GutendexPage {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: GutendexBook[];
-}
+const paginaSchema = z.object({
+  count: z.number().int().nonnegative().catch(0),
+  results: z.array(libroSchema),
+});
 
 /** Lo que el resto del proyecto ve. Sin la forma cruda de Gutendex. */
 export interface LibroExterno {
@@ -85,7 +97,15 @@ export interface LibroExterno {
 
 // ── HTTP ──────────────────────────────────────────────────────────────
 
-async function pedir<T>(path: string): Promise<T> {
+/**
+ * Pide y VALIDA. Cada forma de fallar dice qué pasó, porque si no todas
+ * terminan igual —"Error interno"— y desde afuera no se distingue que
+ * Gutendex esté caído de que haya cambiado el formato de su respuesta.
+ */
+// Genérico sobre el esquema y no sobre el resultado: con `.catch()` el tipo de
+// entrada (lo que llega de Gutendex) y el de salida (lo ya saneado) no son el
+// mismo, y `z.ZodType<T>` los daba por iguales.
+async function pedir<S extends z.ZodTypeAny>(path: string, schema: S): Promise<z.output<S>> {
   let res: Response;
   try {
     res = await fetch(API_BASE + path, {
@@ -98,11 +118,31 @@ async function pedir<T>(path: string): Promise<T> {
   }
 
   if (res.status === 404) throw notFound("Ese libro no está en el catálogo externo");
+  if (res.status === 429) {
+    throw tooManyRequests("El catálogo externo está limitando las consultas. Probá de nuevo en un rato.");
+  }
   if (!res.ok) {
     throw serviceUnavailable(`El catálogo externo respondió ${res.status}`);
   }
 
-  return (await res.json()) as T;
+  let crudo: unknown;
+  try {
+    crudo = await res.json();
+  } catch {
+    throw serviceUnavailable("El catálogo externo no devolvió JSON válido");
+  }
+
+  const parsed = schema.safeParse(crudo);
+  if (!parsed.success) {
+    // El detalle va al log del servidor, no al usuario: es un problema de
+    // contrato entre nosotros y Gutendex, y a quien busca no le dice nada.
+    console.error("[gutendex] respuesta inesperada en %s: %s", path, prettifyZodError(parsed.error));
+    throw serviceUnavailable(
+      "El catálogo externo respondió en un formato que no reconocemos. Puede que haya cambiado su API.",
+    );
+  }
+
+  return parsed.data;
 }
 
 // ── Normalización ─────────────────────────────────────────────────────
@@ -124,7 +164,10 @@ function formato(formats: Record<string, string>, prefijos: string[]): string | 
   return null;
 }
 
-function normalizar(b: GutendexBook): LibroExterno {
+/** El libro ya validado. Se deriva del esquema para que no se puedan separar. */
+type LibroCrudo = z.infer<typeof libroSchema>;
+
+function normalizar(b: LibroCrudo): LibroExterno {
   // El año de muerte del primer autor es lo más cercano a una fecha que da la
   // fuente: Gutendex no trae año de publicación. Es una aproximación y por eso
   // sólo se usa para ordenar y mostrar, nunca para afirmar nada.
@@ -159,7 +202,7 @@ export async function buscarLibros(q: string, idioma?: string): Promise<LibroExt
   const params = new URLSearchParams({ search: q, copyright: "false" });
   if (idioma) params.set("languages", idioma);
 
-  const page = await pedir<GutendexPage>(`/books?${params.toString()}`);
+  const page = await pedir(`/books?${params.toString()}`, paginaSchema);
   return page.results
     .filter((b) => b.copyright === false)
     .map(normalizar)
@@ -169,7 +212,7 @@ export async function buscarLibros(q: string, idioma?: string): Promise<LibroExt
 
 /** Un libro por su id de Project Gutenberg, para el momento de importar. */
 export async function obtenerLibro(id: number): Promise<LibroExterno> {
-  const b = await pedir<GutendexBook>(`/books/${id}`);
+  const b = await pedir(`/books/${id}`, libroSchema);
 
   // Se vuelve a comprobar acá y no sólo en la búsqueda: el id llega del
   // cliente y podría ser cualquiera, no necesariamente uno que pasó el filtro.
