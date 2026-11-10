@@ -6,19 +6,21 @@ import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState, Badge } 
 import { Icon } from "../components/Icon";
 import { api, apiUrl, type Snippet } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-
-/** Fecha corta y legible: "10 nov 2026, 14:32". */
-const fecha = (iso: string) =>
-  new Date(iso).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" });
+import { useI18n } from "../context/I18nContext";
+import type { TranslationKey } from "../i18n";
 
 // ── Conexión con GitHub ───────────────────────────────────────────────
 
-function GithubPanel({ onImported }: { onImported: () => void }) {
+function GithubPanel() {
   const qc = useQueryClient();
+  const { t, dateTime } = useI18n();
   const [importando, setImportando] = useState(false);
   const [gist, setGist] = useState("");
 
-  const { data, isLoading } = useQuery({ queryKey: ["github", "status"], queryFn: () => api.githubStatus() });
+  const { data, isLoading } = useQuery({
+    queryKey: ["github", "status"],
+    queryFn: () => api.githubStatus(),
+  });
 
   const desconectar = useMutation({
     mutationFn: () => api.githubDisconnect(),
@@ -31,7 +33,6 @@ function GithubPanel({ onImported }: { onImported: () => void }) {
       setGist("");
       setImportando(false);
       qc.invalidateQueries({ queryKey: ["snippets"] });
-      onImported();
     },
   });
 
@@ -43,42 +44,48 @@ function GithubPanel({ onImported }: { onImported: () => void }) {
 
   return (
     <Surface className="post">
-      <div className="row spread" style={{ gap: 12, flexWrap: "wrap" }}>
-        <div className="row" style={{ gap: 10, alignItems: "center" }}>
+      <div className="row spread">
+        <div className="row row--sm">
           <Icon name="repo" size={20} />
           <div>
             {conexion ? (
               <>
-                <strong>GitHub conectado</strong>
+                <strong>{t("github.connected")}</strong>
                 <div className="post__meta">
                   <span className="mono">@{conexion.login}</span>
-                  <span className="post__dot" />
-                  <span>desde {fecha(conexion.connectedAt)}</span>
+                  <span className="post__seg">
+                    <span className="post__dot" aria-hidden />
+                    <span>{t("github.since", { date: dateTime(conexion.connectedAt) })}</span>
+                  </span>
                 </div>
               </>
             ) : (
               <>
-                <strong>Conectá tu cuenta de GitHub</strong>
-                <div className="post__meta">
-                  Publicá tus snippets como gists y tené historial de versiones real.
-                </div>
+                <strong>{t("github.connectTitle")}</strong>
+                <div className="post__meta">{t("github.connectBody")}</div>
               </>
             )}
           </div>
         </div>
 
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row row--sm">
           <Button variant="ghost" icon="download" onClick={() => setImportando((v) => !v)}>
-            Importar gist
+            {t("github.importGist")}
           </Button>
           {conexion ? (
             <Button variant="ghost" loading={desconectar.isPending} onClick={() => desconectar.mutate()}>
-              Desconectar
+              {t("github.disconnect")}
             </Button>
           ) : (
             // Navegación real del navegador: el flujo de OAuth no es un fetch.
-            <Button variant="accent" icon="external" onClick={() => { window.location.href = apiUrl("/github/connect"); }}>
-              Conectar GitHub
+            <Button
+              variant="accent"
+              icon="external"
+              onClick={() => {
+                window.location.href = apiUrl("/github/connect");
+              }}
+            >
+              {t("github.connect")}
             </Button>
           )}
         </div>
@@ -86,19 +93,29 @@ function GithubPanel({ onImported }: { onImported: () => void }) {
 
       {importando && (
         <form
-          className="row"
-          style={{ gap: 10, marginTop: 14, alignItems: "flex-end", flexWrap: "wrap" }}
-          onSubmit={(e) => { e.preventDefault(); importar.mutate(); }}
+          className="row row--end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            importar.mutate();
+          }}
         >
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <Field label="URL del gist" hint="Pegá gist.github.com/usuario/id — o sólo el id.">
-              <Input value={gist} onChange={(e) => setGist(e.target.value)} placeholder="https://gist.github.com/…" required />
-            </Field>
-          </div>
+          <Field label={t("github.gistUrl")} hint={t("github.gistUrlHint")} className="col col--lg">
+            <Input
+              type="url"
+              value={gist}
+              onChange={(e) => setGist(e.target.value)}
+              placeholder="https://gist.github.com/…"
+              required
+            />
+          </Field>
           <Button variant="accent" type="submit" loading={importar.isPending} disabled={!gist.trim()}>
-            Importar
+            {t("github.import")}
           </Button>
-          {importar.isError && <p className="field__error">{(importar.error as Error).message}</p>}
+          {importar.isError && (
+            <p className="field__error" role="alert">
+              {(importar.error as Error).message}
+            </p>
+          )}
         </form>
       )}
     </Surface>
@@ -108,6 +125,7 @@ function GithubPanel({ onImported }: { onImported: () => void }) {
 // ── Historial de revisiones de un snippet ─────────────────────────────
 
 function Revisiones({ snippetId }: { snippetId: string }) {
+  const { t, dateTime } = useI18n();
   const [sha, setSha] = useState<string | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
@@ -122,45 +140,56 @@ function Revisiones({ snippetId }: { snippetId: string }) {
   });
 
   if (isLoading) return <Skeleton h={80} r={12} />;
-  if (isError) return <p className="field__error">{(error as Error).message}</p>;
+  if (isError)
+    return (
+      <p className="field__error" role="alert">
+        {(error as Error).message}
+      </p>
+    );
 
   const revisiones = data?.revisions ?? [];
-  if (revisiones.length === 0) return <p className="post__meta">Todavía no hay revisiones.</p>;
+  if (revisiones.length === 0) return <p className="post__meta">{t("snippets.noRevisions")}</p>;
 
   return (
-    <div className="stack" style={{ marginTop: 12, gap: 8 }}>
+    <div className="stack stack--sm">
       {revisiones.map((r, i) => (
         <div key={r.sha}>
           <button
             type="button"
-            className="btn btn--ghost btn--block"
-            style={{ justifyContent: "space-between" }}
+            className="btn btn--ghost btn--row"
+            aria-expanded={sha === r.sha}
             onClick={() => setSha(sha === r.sha ? null : r.sha)}
           >
-            <span className="row" style={{ gap: 8 }}>
+            <span className="file-row__name">
               <span className="mono">{r.sha.slice(0, 7)}</span>
-              {i === 0 && <Badge tone="accent">actual</Badge>}
+              {i === 0 && <Badge tone="accent">{t("snippets.current")}</Badge>}
             </span>
-            <span className="post__meta" style={{ margin: 0 }}>
-              {r.authorLogin ? `@${r.authorLogin} · ` : ""}{fecha(r.committedAt)}
+            <span className="file-row__meta">
+              {r.authorLogin ? `@${r.authorLogin} · ` : ""}
+              {dateTime(r.committedAt)}
               {r.additions !== null && ` · +${r.additions} −${r.deletions ?? 0}`}
             </span>
           </button>
 
-          {sha === r.sha && (
-            detalle.isLoading ? (
+          {sha === r.sha &&
+            (detalle.isLoading ? (
               <Skeleton h={120} r={12} />
             ) : detalle.isError ? (
-              <p className="field__error">{(detalle.error as Error).message}</p>
+              <p className="field__error" role="alert">
+                {(detalle.error as Error).message}
+              </p>
             ) : (
               detalle.data?.revision.files.map((f) => (
-                <div key={f.filename} style={{ marginTop: 8 }}>
-                  <div className="post__meta"><span className="mono">{f.filename}</span></div>
-                  <pre className="code"><code>{f.truncated && !f.content ? "(archivo demasiado grande para mostrarlo)" : f.content}</code></pre>
+                <div key={f.filename} className="revision__file">
+                  <div className="post__meta">
+                    <span className="mono">{f.filename}</span>
+                  </div>
+                  <pre className="code" tabIndex={0}>
+                    <code>{f.truncated && !f.content ? t("snippets.fileTooBig") : f.content}</code>
+                  </pre>
                 </div>
               ))
-            )
-          )}
+            ))}
         </div>
       ))}
     </div>
@@ -171,6 +200,7 @@ function Revisiones({ snippetId }: { snippetId: string }) {
 
 function AccionesGithub({ snippet }: { snippet: Snippet }) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const refrescar = () => {
     qc.invalidateQueries({ queryKey: ["snippets"] });
     qc.invalidateQueries({ queryKey: ["snippets", snippet.id, "revisions"] });
@@ -188,19 +218,21 @@ function AccionesGithub({ snippet }: { snippet: Snippet }) {
   const error = (publicar.error ?? sincronizar.error) as Error | null;
 
   return (
-    <div className="stack" style={{ gap: 6 }}>
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-        {snippet.gistId ? (
-          <Button variant="ghost" icon="sync" loading={sincronizar.isPending} onClick={() => sincronizar.mutate()}>
-            Traer de GitHub
-          </Button>
-        ) : (
-          <Button variant="ghost" icon="external" loading={publicar.isPending} onClick={() => publicar.mutate()}>
-            Publicar en GitHub
-          </Button>
-        )}
-      </div>
-      {error && <p className="field__error">{error.message}</p>}
+    <div className="stack stack--sm">
+      {snippet.gistId ? (
+        <Button variant="ghost" icon="sync" loading={sincronizar.isPending} onClick={() => sincronizar.mutate()}>
+          {t("github.pull")}
+        </Button>
+      ) : (
+        <Button variant="ghost" icon="external" loading={publicar.isPending} onClick={() => publicar.mutate()}>
+          {t("github.publish")}
+        </Button>
+      )}
+      {error && (
+        <p className="field__error" role="alert">
+          {error.message}
+        </p>
+      )}
     </div>
   );
 }
@@ -209,29 +241,85 @@ function AccionesGithub({ snippet }: { snippet: Snippet }) {
 
 function ShareForm({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [form, setForm] = useState({ title: "", language: "", filename: "", sourceCode: "" });
   const mut = useMutation({
     mutationFn: () => api.createSnippet(form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["snippets"] }); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["snippets"] });
+      onClose();
+    },
   });
-  const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const upd =
+    (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <Surface className="post" as="form" onSubmit={(e: React.FormEvent) => { e.preventDefault(); mut.mutate(); }}>
-      <div className="row" style={{ gap: 14 }}>
-        <div style={{ flex: 2, minWidth: 180 }}><Field label="Título"><Input value={form.title} onChange={upd("title")} placeholder="Debounce en TypeScript" required /></Field></div>
-        <div style={{ flex: 1, minWidth: 120 }}><Field label="Lenguaje"><Input value={form.language} onChange={upd("language")} placeholder="typescript" required /></Field></div>
-        <div style={{ flex: 1, minWidth: 120 }}><Field label="Archivo (opcional)"><Input value={form.filename} onChange={upd("filename")} placeholder="debounce.ts" /></Field></div>
+    <Surface
+      className="post"
+      as="form"
+      onSubmit={(e: React.FormEvent) => {
+        e.preventDefault();
+        mut.mutate();
+      }}
+    >
+      {/* Alineadas por arriba: los campos tienen etiquetas de una línea, pero
+          uno con error crece y no debe arrastrar a los otros dos. */}
+      <div className="row row--top">
+        <Field label={t("snippets.formTitle")} className="col col--lg">
+          <Input
+            value={form.title}
+            onChange={upd("title")}
+            placeholder={t("snippets.formTitlePlaceholder")}
+            required
+          />
+        </Field>
+        <Field label={t("snippets.language")} className="col col--sm">
+          <Input
+            value={form.language}
+            onChange={upd("language")}
+            placeholder={t("snippets.languagePlaceholder")}
+            required
+          />
+        </Field>
+        <Field label={t("snippets.filename")} className="col col--sm">
+          <Input
+            value={form.filename}
+            onChange={upd("filename")}
+            placeholder={t("snippets.filenamePlaceholder")}
+          />
+        </Field>
       </div>
-      <Field label="Código">
-        <Textarea className="input input--area mono" value={form.sourceCode} onChange={upd("sourceCode")} placeholder="export function debounce(...) { … }" style={{ minHeight: 160 }} required />
+
+      <Field label={t("snippets.code")}>
+        <Textarea
+          className="mono input--area-md"
+          value={form.sourceCode}
+          onChange={upd("sourceCode")}
+          placeholder={t("snippets.codePlaceholder")}
+          required
+        />
       </Field>
+
       <div className="row spread">
-        <Button variant="ghost" type="button" onClick={onClose}>Cancelar</Button>
-        <Button variant="accent" type="submit" loading={mut.isPending} disabled={!form.title || !form.language || !form.sourceCode}>Compartir</Button>
+        <Button variant="ghost" onClick={onClose}>
+          {t("common.cancel")}
+        </Button>
+        <Button
+          variant="accent"
+          type="submit"
+          loading={mut.isPending}
+          disabled={!form.title || !form.language || !form.sourceCode}
+        >
+          {t("snippets.submit")}
+        </Button>
       </div>
-      {mut.isError && <p className="field__error">No se pudo compartir. ¿Iniciaste sesión?</p>}
+
+      {mut.isError && (
+        <p className="field__error" role="alert">
+          {t("snippets.shareFailed")}
+        </p>
+      )}
     </Surface>
   );
 }
@@ -239,14 +327,15 @@ function ShareForm({ onClose }: { onClose: () => void }) {
 // ── Página ────────────────────────────────────────────────────────────
 
 /** Mensajes con los que vuelve el usuario del flujo de OAuth. */
-const AVISOS: Record<string, string> = {
-  conectado: "Listo: tu cuenta de GitHub quedó conectada.",
-  cancelado: "Cancelaste la conexión con GitHub.",
-  error: "No pudimos conectar con GitHub. Probá de nuevo.",
+const AVISOS: Record<string, TranslationKey> = {
+  conectado: "github.noticeConnected",
+  cancelado: "github.noticeCancelled",
+  error: "github.noticeError",
 };
 
 export function Snippets() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [sharing, setSharing] = useState(false);
@@ -255,6 +344,7 @@ export function Snippets() {
   const { data, isLoading, isError } = useQuery({ queryKey: ["snippets"], queryFn: () => api.snippets() });
 
   const aviso = params.get("github");
+  const avisoKey = aviso ? AVISOS[aviso] : undefined;
   const cerrarAviso = () => {
     params.delete("github");
     params.delete("motivo");
@@ -263,71 +353,113 @@ export function Snippets() {
 
   return (
     <Shell
-      title="Snippets"
-      subtitle="Fragmentos de código que la comunidad comparte, versionados en GitHub."
-      actions={user
-        ? <Button variant="accent" icon="plus" onClick={() => setSharing((v) => !v)}>Compartir snippet</Button>
-        : <Button variant="accent" onClick={() => navigate("/auth")}>Ingresar para compartir</Button>}
+      title={t("snippets.title")}
+      subtitle={t("snippets.subtitle")}
+      actions={
+        user ? (
+          <Button variant="accent" icon="plus" onClick={() => setSharing((v) => !v)}>
+            {t("snippets.share")}
+          </Button>
+        ) : (
+          <Button variant="accent" onClick={() => navigate("/auth")}>
+            {t("snippets.signInToShare")}
+          </Button>
+        )
+      }
     >
-      {aviso && AVISOS[aviso] && (
-        <Surface style={{ marginBottom: 16 }}>
-          <div className="row spread">
-            <span>{AVISOS[aviso]}</span>
-            <Button variant="ghost" onClick={cerrarAviso}>Cerrar</Button>
-          </div>
+      {avisoKey && (
+        <Surface className={`notice block-gap ${aviso === "error" ? "notice--alert" : ""}`} role="status">
+          <span className="notice__text">
+            <Icon name={aviso === "conectado" ? "check" : "alert"} size={17} />
+            {t(avisoKey)}
+          </span>
+          <Button variant="ghost" onClick={cerrarAviso}>
+            {t("common.close")}
+          </Button>
         </Surface>
       )}
 
       {user && (
-        <div style={{ marginBottom: 20 }}>
-          <GithubPanel onImported={() => undefined} />
+        <div className="block-gap">
+          <GithubPanel />
         </div>
       )}
 
-      {sharing && <div style={{ marginBottom: 20 }}><ShareForm onClose={() => setSharing(false)} /></div>}
+      {sharing && (
+        <div className="block-gap">
+          <ShareForm onClose={() => setSharing(false)} />
+        </div>
+      )}
 
       {isLoading ? (
-        <div className="stack">{[0, 1].map((i) => <Skeleton key={i} h={160} r={18} />)}</div>
+        <div className="stack">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} h={160} r={18} />
+          ))}
+        </div>
       ) : isError ? (
-        <Surface><EmptyState icon="snippet" title="No pudimos cargar los snippets" body="Revisá la conexión con la API." /></Surface>
+        <Surface>
+          <EmptyState icon="snippet" title={t("snippets.errorTitle")} body={t("common.checkApi")} />
+        </Surface>
       ) : !data || data.items.length === 0 ? (
-        <Surface><EmptyState icon="snippet" title="Todavía no hay snippets" body="Compartí el primer fragmento de código útil." action={user ? <Button variant="accent" icon="plus" onClick={() => setSharing(true)}>Compartir snippet</Button> : undefined} /></Surface>
+        <Surface>
+          <EmptyState
+            icon="snippet"
+            title={t("snippets.emptyTitle")}
+            body={t("snippets.emptyBody")}
+            action={
+              user ? (
+                <Button variant="accent" icon="plus" onClick={() => setSharing(true)}>
+                  {t("snippets.share")}
+                </Button>
+              ) : undefined
+            }
+          />
+        </Surface>
       ) : (
         <div className="stack">
           {data.items.map((s: Snippet) => {
             const esMio = user?.username === s.authorUsername;
             return (
               <Surface key={s.id} className="post">
-                <div className="row spread">
-                  <div>
+                <div className="row row--top spread">
+                  <div className="grow">
                     <h3>{s.title}</h3>
                     <div className="post__meta">
                       <span>@{s.authorUsername}</span>
-                      {s.filename && <><span className="post__dot" /><span className="mono">{s.filename}</span></>}
+                      {s.filename && (
+                        <span className="post__seg">
+                          <span className="post__dot" aria-hidden />
+                          <span className="mono">{s.filename}</span>
+                        </span>
+                      )}
                       {s.gistHtmlUrl && (
-                        <>
-                          <span className="post__dot" />
+                        <span className="post__seg">
+                          <span className="post__dot" aria-hidden />
                           <a href={s.gistHtmlUrl} target="_blank" rel="noreferrer noopener">
-                            gist de @{s.gistOwnerLogin ?? "github"}
+                            {t("github.gistBy", { login: s.gistOwnerLogin ?? "github" })}
                           </a>
-                        </>
+                        </span>
                       )}
                     </div>
                   </div>
                   <Badge tone="accent">{s.language}</Badge>
                 </div>
 
-                <pre className="code"><code>{s.sourceCode}</code></pre>
+                <pre className="code" tabIndex={0}>
+                  <code>{s.sourceCode}</code>
+                </pre>
 
-                <div className="row spread" style={{ gap: 10, flexWrap: "wrap" }}>
-                  <div className="row" style={{ gap: 8 }}>
+                <div className="row spread">
+                  <div className="row row--sm">
                     {s.gistId && (
                       <Button
                         variant="ghost"
                         icon="history"
+                        aria-expanded={historial === s.id}
                         onClick={() => setHistorial(historial === s.id ? null : s.id)}
                       >
-                        {historial === s.id ? "Ocultar historial" : "Historial"}
+                        {t(historial === s.id ? "snippets.hideHistory" : "snippets.history")}
                       </Button>
                     )}
                   </div>

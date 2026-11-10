@@ -2,18 +2,38 @@
 <html lang="es" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Neo Axis — libros y código, juntos</title>
-    <meta name="description" content="Biblioteca de libros y repositorios para una comunidad de desarrolladores. Colecciones que unen lo que leés con lo que programás." />
+    <meta
+      name="description"
+      content="Biblioteca de libros y repositorios para una comunidad de desarrolladores. Colecciones que unen lo que lees con lo que programas."
+    />
+
+    <!-- Icono de la pestaña. El SVG manda donde se soporta; el .ico queda
+         para los navegadores y accesos directos que no leen SVG. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- La barra del navegador móvil toma el color del tema. Es UNA sola
+         etiqueta, sin `media`: el tema lo elige la persona dentro de la app,
+         no el sistema operativo. Con dos etiquetas por prefers-color-scheme,
+         un teléfono en modo oscuro con la app en claro pintaba la barra
+         oscura contra una página clara. La fija prefs-init.js antes de
+         pintar y la actualiza ThemeContext al conmutar. -->
+    <meta name="theme-color" content="#e8ebf2" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <!-- Fija el tema antes de pintar (anti-parpadeo). Archivo externo, no inline:
-         el CSP (default-src 'self') bloquea scripts inline. -->
-    <script src="/theme-init.js"></script>
+
+    <!-- Fija tema e idioma antes de pintar (anti-parpadeo). Archivo externo,
+         no inline: el CSP (default-src 'self') bloquea scripts inline. -->
+    <script src="/prefs-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

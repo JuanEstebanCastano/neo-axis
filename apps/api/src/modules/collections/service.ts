@@ -145,13 +145,13 @@ interface CollectionItemRow {
 async function listItems(db: Database, collectionId: string): Promise<CollectionItemRow[]> {
   const { rows } = await sql<CollectionItemRow>`
     SELECT ci.id::text AS id,
-           ci.item_type AS "itemType",
-           COALESCE(ci.book_id, ci.repository_id, ci.snippet_id, ci.post_id)::text AS "itemId",
-           COALESCE(b.title, gr.repository_name, sn.title, p.title) AS title,
-           ci.note,
-           ci.sort_order AS "sortOrder"
+            ci.item_type AS "itemType",
+            COALESCE(ci.book_id, ci.repository_id, ci.snippet_id, ci.post_id)::text AS "itemId",
+            COALESCE(b.title, gr.repository_name, sn.title, p.title) AS title,
+            ci.note,
+            ci.sort_order AS "sortOrder"
     FROM app.collection_items ci
-    LEFT JOIN app.books b             ON b.id  = ci.book_id
+    LEFT JOIN app.books b            ON b.id  = ci.book_id
     LEFT JOIN app.github_repositories gr ON gr.id = ci.repository_id
     LEFT JOIN app.post_snippets sn    ON sn.id = ci.snippet_id
     LEFT JOIN app.posts p             ON p.id  = ci.post_id

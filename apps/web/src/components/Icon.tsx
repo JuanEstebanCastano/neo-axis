@@ -27,6 +27,10 @@ const paths: Record<string, JSX.Element> = {
   file: <><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-4-4Z" /><path d="M14 3v4h4" /></>,
   upload: <><path d="M12 19V7" /><path d="m7 12 5-5 5 5" /><path d="M5 21h14" /></>,
   trash: <><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></>,
+  chevron: <path d="m6 9 6 6 6-6" />,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z" /></>,
+  close: <><path d="m6 6 12 12" /><path d="m18 6-12 12" /></>,
+  alert: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5" /><path d="M12 16.2v.3" /></>,
 };
 
 export type IconName = keyof typeof paths;

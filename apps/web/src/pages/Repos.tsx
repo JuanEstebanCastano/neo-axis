@@ -1,8 +1,8 @@
 /**
  * REPOSITORIOS DE GITHUB
  * ──────────────────────────────────────────────────────────────────────
- * Elegís un repo tuyo y trabajás con él sin salir de Neo Axis: mirás sus
- * carpetas, abrís un archivo, lo editás, subís archivos del disco y ves el
+ * Eliges un repo tuyo y trabajas con él sin salir de Neo Axis: miras sus
+ * carpetas, abres un archivo, lo editas, subes archivos del disco y ves el
  * historial. Cada guardado es un commit con tu nombre, en tu cuenta.
  *
  * Nada de esto se guarda acá: el dueño de los archivos es GitHub y se
@@ -13,12 +13,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
-import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState, Badge } from "../components/ui";
+import {
+  Surface,
+  Button,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  Skeleton,
+  EmptyState,
+  Badge,
+} from "../components/ui";
 import { Icon } from "../components/Icon";
 import { api, apiUrl, ApiError, type Repo, type RepoEntry } from "../lib/api";
-
-const fecha = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" }) : "";
+import { useI18n } from "../context/I18nContext";
 
 /** 1,2 MB -> "1.2 MB". Para que el tamaño diga algo a simple vista. */
 function peso(bytes: number): string {
@@ -47,16 +55,14 @@ function leerBase64(file: File): Promise<string> {
 // ── Conectar la cuenta ────────────────────────────────────────────────
 
 function PedirConexion({ motivo }: { motivo: "sin-conexion" | "sin-permiso" }) {
+  const { t } = useI18n();
+  const sinConexion = motivo === "sin-conexion";
   return (
     <Surface className="post">
       <EmptyState
         icon="repo"
-        title={motivo === "sin-conexion" ? "Conectá tu cuenta de GitHub" : "Tu conexión necesita un permiso más"}
-        body={
-          motivo === "sin-conexion"
-            ? "Para ver y escribir en tus repositorios, Neo Axis necesita que autorices tu cuenta."
-            : "Conectaste tu cuenta antes de que existiera esta función. Volvé a conectarla para darle acceso a tus repositorios públicos."
-        }
+        title={t(sinConexion ? "repos.connectTitle" : "repos.scopeTitle")}
+        body={t(sinConexion ? "repos.connectBody" : "repos.scopeBody")}
         action={
           // Navegación real del navegador: el flujo de OAuth no es un fetch.
           <Button
@@ -66,7 +72,7 @@ function PedirConexion({ motivo }: { motivo: "sin-conexion" | "sin-permiso" }) {
               window.location.href = apiUrl("/github/connect");
             }}
           >
-            {motivo === "sin-conexion" ? "Conectar GitHub" : "Reconectar GitHub"}
+            {t(sinConexion ? "repos.connect" : "repos.reconnect")}
           </Button>
         }
       />
@@ -86,11 +92,13 @@ function SelectorDeRepo({
   onElegir: (fullName: string) => void;
 }) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [creando, setCreando] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
 
   const crear = useMutation({
-    mutationFn: () => api.createRepo({ name: form.name, description: form.description || undefined }),
+    mutationFn: () =>
+      api.createRepo({ name: form.name, description: form.description || undefined }),
     onSuccess: ({ repo }) => {
       qc.invalidateQueries({ queryKey: ["repos"] });
       setCreando(false);
@@ -101,15 +109,13 @@ function SelectorDeRepo({
 
   return (
     <Surface className="post">
-      <div className="row spread" style={{ gap: 12, flexWrap: "wrap" }}>
-        <Field label="Repositorio">
-          <select
-            className="input"
-            value={actual ?? ""}
-            onChange={(e) => e.target.value && onElegir(e.target.value)}
-          >
+      {/* Alineado abajo: el botón se apoya en la base del campo, no en su
+          centro, que es donde quedaba flotando a media altura. */}
+      <div className="row row--end">
+        <Field label={t("repos.repo")} className="col col--lg">
+          <Select value={actual ?? ""} onChange={(e) => e.target.value && onElegir(e.target.value)}>
             <option value="" disabled>
-              Elegí uno de tus repositorios…
+              {t("repos.choose")}
             </option>
             {repos.map((r) => (
               <option key={r.fullName} value={r.fullName}>
@@ -117,60 +123,54 @@ function SelectorDeRepo({
                 {r.language ? ` · ${r.language}` : ""}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Button variant="ghost" icon="plus" onClick={() => setCreando((v) => !v)}>
-          {creando ? "Cancelar" : "Repositorio nuevo"}
+          {t(creando ? "common.cancel" : "repos.newRepo")}
         </Button>
       </div>
 
-      {repos.length === 0 && (
-        <p className="post__meta">
-          No encontramos repositorios públicos tuyos. Creá uno acá abajo para empezar.
-        </p>
-      )}
+      {repos.length === 0 && <p className="post__meta">{t("repos.noRepos")}</p>}
 
       {creando && (
         <form
-          className="stack"
-          style={{ marginTop: 12 }}
+          className="stack stack--md"
           onSubmit={(e) => {
             e.preventDefault();
             crear.mutate();
           }}
         >
-          <div className="row" style={{ gap: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <Field label="Nombre" hint="Letras, números, punto, guion y guion bajo.">
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="mi-proyecto"
-                  required
-                />
-              </Field>
-            </div>
-            <div style={{ flex: 2, minWidth: 200 }}>
-              <Field label="Descripción (opcional)">
-                <Input
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Para qué es"
-                />
-              </Field>
-            </div>
+          <div className="row row--top">
+            <Field label={t("repos.name")} hint={t("repos.nameHint")} className="col">
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder={t("repos.namePlaceholder")}
+                required
+              />
+            </Field>
+            <Field label={t("repos.desc")} className="col col--lg">
+              <Input
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder={t("repos.descPlaceholder")}
+              />
+            </Field>
           </div>
-          <p className="post__meta">
-            Se crea <strong>público</strong> y con un README inicial. Lo segundo importa: un
-            repositorio sin ningún commit no tiene rama todavía, y entonces no se le puede subir
-            nada.
-          </p>
-          <div className="row" style={{ justifyContent: "flex-end" }}>
+
+          <p className="post__meta measure">{t("repos.createNote")}</p>
+
+          <div className="row row--right">
             <Button variant="accent" type="submit" loading={crear.isPending} disabled={!form.name.trim()}>
-              Crear
+              {t("common.create")}
             </Button>
           </div>
-          {crear.isError && <p className="field__error">{(crear.error as Error).message}</p>}
+
+          {crear.isError && (
+            <p className="field__error" role="alert">
+              {(crear.error as Error).message}
+            </p>
+          )}
         </form>
       )}
     </Surface>
@@ -180,25 +180,47 @@ function SelectorDeRepo({
 // ── Migas de pan ──────────────────────────────────────────────────────
 
 function Migas({ path, onIr }: { path: string; onIr: (p: string) => void }) {
+  const { t } = useI18n();
   const partes = path.split("/").filter(Boolean);
+  const enRaiz = partes.length === 0;
   return (
-    <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-      <button type="button" className="btn btn--ghost" onClick={() => onIr("")}>
-        <Icon name="repo" size={15} /> raíz
-      </button>
+    <nav className="crumbs" aria-label={t("repos.breadcrumb")}>
+      {/* La última miga es dónde estás parado, no un sitio al que ir: va como
+          texto con aria-current, no como botón que navega hacia sí mismo.
+          Deshabilitarlo en vez de eso lo habría dejado gris, que se lee como
+          "no disponible" y no como "estás acá". */}
+      {enRaiz ? (
+        <span className="crumbs__here" aria-current="location">
+          <Icon name="repo" size={15} />
+          {t("repos.root")}
+        </span>
+      ) : (
+        <button type="button" className="btn btn--ghost" onClick={() => onIr("")}>
+          <Icon name="repo" size={15} />
+          {t("repos.root")}
+        </button>
+      )}
       {partes.map((parte, i) => (
-        <span key={i} className="row" style={{ gap: 6, alignItems: "center" }}>
-          <span className="post__dot" />
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => onIr(partes.slice(0, i + 1).join("/"))}
-          >
-            {parte}
-          </button>
+        <span key={i} className="crumbs__step">
+          <span className="crumbs__sep" aria-hidden>
+            /
+          </span>
+          {i === partes.length - 1 ? (
+            <span className="crumbs__here" aria-current="location">
+              {parte}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => onIr(partes.slice(0, i + 1).join("/"))}
+            >
+              {parte}
+            </button>
+          )}
         </span>
       ))}
-    </div>
+    </nav>
   );
 }
 
@@ -215,6 +237,7 @@ function SubirArchivos({
   directory: string;
   onListo: () => void;
 }) {
+  const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [elegidos, setElegidos] = useState<File[]>([]);
 
@@ -239,14 +262,14 @@ function SubirArchivos({
   const resultado = subir.data;
 
   return (
-    <div className="stack" style={{ gap: 10 }}>
+    <div className="stack stack--md">
       <Field
-        label="Subir archivos"
-        hint={`Hasta 20 por vez, 5 MB cada uno. Caen en ${directory ? `/${directory}` : "la raíz"}.`}
+        label={t("repos.upload")}
+        hint={t("repos.uploadHint", { dir: directory ? `/${directory}` : t("repos.rootDir") })}
       >
         <input
           ref={input}
-          className="input"
+          className="input input--file"
           type="file"
           multiple
           onChange={(e) => setElegidos(Array.from(e.target.files ?? []))}
@@ -255,29 +278,37 @@ function SubirArchivos({
 
       {elegidos.length > 0 && (
         <>
-          <div className="stack" style={{ gap: 4 }}>
+          <div className="stack stack--xs">
             {elegidos.map((f) => (
-              <div key={f.name} className="row spread">
+              <div key={f.name} className="row row--sm spread">
                 <span className="mono">{f.name}</span>
-                <span className="post__meta" style={{ margin: 0 }}>{peso(f.size)}</span>
+                <span className="file-row__meta">{peso(f.size)}</span>
               </div>
             ))}
           </div>
-          <div className="row" style={{ justifyContent: "flex-end" }}>
+          <div className="row row--right">
             <Button variant="accent" icon="upload" loading={subir.isPending} onClick={() => subir.mutate()}>
-              Subir {elegidos.length} archivo{elegidos.length > 1 ? "s" : ""}
+              {elegidos.length === 1
+                ? t("repos.uploadOne")
+                : t("repos.uploadMany", { n: elegidos.length })}
             </Button>
           </div>
         </>
       )}
 
-      {subir.isError && <p className="field__error">{(subir.error as Error).message}</p>}
+      {subir.isError && (
+        <p className="field__error" role="alert">
+          {(subir.error as Error).message}
+        </p>
+      )}
 
       {resultado && (
-        <div className="stack" style={{ gap: 4 }}>
+        <div className="stack stack--xs" role="status">
           {resultado.subidos.map((s) => (
-            <p key={s.path} className="post__meta" style={{ margin: 0 }}>
-              <Icon name="check" size={14} /> <span className="mono">{s.path}</span> ·{" "}
+            <p key={s.path} className="result-line result-line--ok">
+              <Icon name="check" size={14} />
+              <span className="mono">{s.path}</span>
+              <span aria-hidden>·</span>
               <a href={s.commitUrl} target="_blank" rel="noreferrer noopener">
                 {s.commitSha.slice(0, 7)}
               </a>
@@ -313,6 +344,7 @@ function EditorDeArchivo({
   onGuardado: () => void;
   onCancelar?: (() => void) | undefined;
 }) {
+  const { t } = useI18n();
   const [ruta, setRuta] = useState(path);
   const [contenido, setContenido] = useState(contenidoInicial);
   const [mensaje, setMensaje] = useState("");
@@ -341,30 +373,38 @@ function EditorDeArchivo({
   const sinCambios = contenido === contenidoInicial && ruta === path;
 
   return (
-    <div className="stack" style={{ gap: 10 }}>
-      <Field label="Ruta del archivo" hint="Las carpetas se crean solas: src/lib/util.ts">
-        <Input value={ruta} onChange={(e) => setRuta(e.target.value)} placeholder="src/util.ts" required />
-      </Field>
-      <Field label="Contenido">
-        <Textarea
-          className="input input--area mono"
-          value={contenido}
-          onChange={(e) => setContenido(e.target.value)}
-          style={{ minHeight: 260 }}
-          placeholder="Pegá o escribí tu código acá…"
+    <div className="stack stack--md">
+      <Field label={t("repos.filePath")} hint={t("repos.filePathHint")}>
+        <Input
+          className="mono"
+          value={ruta}
+          onChange={(e) => setRuta(e.target.value)}
+          placeholder={t("repos.filePathPlaceholder")}
+          required
         />
       </Field>
-      <Field label="Mensaje del commit (opcional)">
+
+      <Field label={t("repos.content")}>
+        <Textarea
+          className="mono input--area-lg"
+          value={contenido}
+          onChange={(e) => setContenido(e.target.value)}
+          placeholder={t("repos.contentPlaceholder")}
+        />
+      </Field>
+
+      <Field label={t("repos.commitMessage")}>
         <Input
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
-          placeholder={sha ? `Actualiza ${ruta}` : `Agrega ${ruta}`}
+          placeholder={t(sha ? "repos.commitUpdate" : "repos.commitAdd", { path: ruta })}
         />
       </Field>
+
       <div className="row spread">
         {onCancelar ? (
-          <Button variant="ghost" type="button" onClick={onCancelar}>
-            Cancelar
+          <Button variant="ghost" onClick={onCancelar}>
+            {t("common.cancel")}
           </Button>
         ) : (
           <span />
@@ -376,14 +416,22 @@ function EditorDeArchivo({
           disabled={!ruta.trim() || sinCambios}
           onClick={() => guardar.mutate()}
         >
-          Guardar en GitHub
+          {t("repos.save")}
         </Button>
       </div>
-      {sinCambios && <p className="post__meta">No hay cambios para guardar.</p>}
-      {guardar.isError && <p className="field__error">{(guardar.error as Error).message}</p>}
+
+      {sinCambios && <p className="post__meta">{t("repos.noChanges")}</p>}
+
+      {guardar.isError && (
+        <p className="field__error" role="alert">
+          {(guardar.error as Error).message}
+        </p>
+      )}
+
       {guardar.data && (
-        <p className="post__meta">
-          <Icon name="check" size={14} /> {guardar.data.creado ? "Creado" : "Actualizado"} en el commit{" "}
+        <p className="result-line result-line--ok" role="status">
+          <Icon name="check" size={14} />
+          {t(guardar.data.creado ? "repos.savedCreated" : "repos.savedUpdated")}
           <a href={guardar.data.commitUrl} target="_blank" rel="noreferrer noopener">
             {guardar.data.commitSha.slice(0, 7)}
           </a>
@@ -396,31 +444,37 @@ function EditorDeArchivo({
 // ── Historial ─────────────────────────────────────────────────────────
 
 function Historial({ owner, repo, path }: { owner: string; repo: string; path?: string | undefined }) {
+  const { t, dateTime } = useI18n();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["repos", owner, repo, "commits", path ?? ""],
     queryFn: () => api.repoCommits(owner, repo, path),
   });
 
   if (isLoading) return <Skeleton h={80} r={12} />;
-  if (isError) return <p className="field__error">{(error as Error).message}</p>;
+  if (isError)
+    return (
+      <p className="field__error" role="alert">
+        {(error as Error).message}
+      </p>
+    );
 
   const commits = data?.commits ?? [];
-  if (commits.length === 0) return <p className="post__meta">Todavía no hay commits.</p>;
+  if (commits.length === 0) return <p className="post__meta">{t("repos.noCommits")}</p>;
 
   return (
-    <div className="stack" style={{ gap: 8, marginTop: 12 }}>
+    <div className="stack stack--sm">
       {commits.map((c, i) => (
-        <div key={c.sha} className="row spread" style={{ gap: 10, flexWrap: "wrap" }}>
-          <span className="row" style={{ gap: 8, alignItems: "center" }}>
+        <div key={c.sha} className="row row--sm spread">
+          <span className="row row--sm">
             <a className="mono" href={c.htmlUrl} target="_blank" rel="noreferrer noopener">
               {c.sha.slice(0, 7)}
             </a>
-            {i === 0 && <Badge tone="accent">último</Badge>}
+            {i === 0 && <Badge tone="accent">{t("repos.latest")}</Badge>}
             <span>{c.message.split("\n")[0]}</span>
           </span>
-          <span className="post__meta" style={{ margin: 0 }}>
+          <span className="file-row__meta">
             {c.authorLogin ? `@${c.authorLogin} · ` : c.authorName ? `${c.authorName} · ` : ""}
-            {fecha(c.committedAt)}
+            {c.committedAt ? dateTime(c.committedAt) : ""}
           </span>
         </div>
       ))}
@@ -432,6 +486,7 @@ function Historial({ owner, repo, path }: { owner: string; repo: string; path?: 
 
 function Explorador({ owner, repo }: { owner: string; repo: string }) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [path, setPath] = useState("");
   const [creando, setCreando] = useState(false);
   const [verHistorial, setVerHistorial] = useState(false);
@@ -453,8 +508,7 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
   };
 
   const borrar = useMutation({
-    mutationFn: (entrada: { path: string; sha: string }) =>
-      api.deleteRepoFile(owner, repo, entrada),
+    mutationFn: (entrada: { path: string; sha: string }) => api.deleteRepoFile(owner, repo, entrada),
     onSuccess: () => {
       setPath(path.split("/").slice(0, -1).join("/"));
       refrescar();
@@ -464,16 +518,27 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
   const carpetaActual = data?.kind === "file" ? path.split("/").slice(0, -1).join("/") : path;
 
   return (
-    <div className="stack" style={{ gap: 14 }}>
+    <div className="stack stack--md">
       <Surface className="post">
-        <div className="row spread" style={{ gap: 10, flexWrap: "wrap" }}>
-          <Migas path={path} onIr={(p) => { setPath(p); setCreando(false); }} />
-          <div className="row" style={{ gap: 8 }}>
-            <Button variant="ghost" icon="history" onClick={() => setVerHistorial((v) => !v)}>
-              {verHistorial ? "Ocultar historial" : "Historial"}
+        <div className="row spread">
+          <Migas
+            path={path}
+            onIr={(p) => {
+              setPath(p);
+              setCreando(false);
+            }}
+          />
+          <div className="row row--sm">
+            <Button
+              variant="ghost"
+              icon="history"
+              aria-expanded={verHistorial}
+              onClick={() => setVerHistorial((v) => !v)}
+            >
+              {t(verHistorial ? "repos.hideHistory" : "repos.history")}
             </Button>
             <Button variant="ghost" icon="plus" onClick={() => setCreando((v) => !v)}>
-              {creando ? "Cancelar" : "Archivo nuevo"}
+              {t(creando ? "common.cancel" : "repos.newFile")}
             </Button>
           </div>
         </div>
@@ -484,13 +549,16 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
 
       {creando && (
         <Surface className="post">
-          <h3>Archivo nuevo</h3>
+          <h3>{t("repos.newFile")}</h3>
           <EditorDeArchivo
             owner={owner}
             repo={repo}
             path={carpetaActual ? `${carpetaActual}/` : ""}
             contenidoInicial=""
-            onGuardado={() => { setCreando(false); refrescar(); }}
+            onGuardado={() => {
+              setCreando(false);
+              refrescar();
+            }}
             onCancelar={() => setCreando(false)}
           />
         </Surface>
@@ -503,11 +571,13 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
           {(error as ApiError).status === 404 ? (
             <EmptyState
               icon="folder"
-              title="Acá no hay nada"
-              body="El repositorio está vacío o la carpeta no existe. Creá un archivo para empezar."
+              title={t("repos.emptyHereTitle")}
+              body={t("repos.emptyHereBody")}
             />
           ) : (
-            <p className="field__error">{(error as Error).message}</p>
+            <p className="field__error" role="alert">
+              {(error as Error).message}
+            </p>
           )}
         </Surface>
       )}
@@ -515,25 +585,26 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
       {data?.kind === "dir" && (
         <Surface className="post">
           {data.entries.length === 0 ? (
-            <EmptyState icon="folder" title="Carpeta vacía" body="No hay archivos en esta ruta." />
+            <EmptyState
+              icon="folder"
+              title={t("repos.emptyFolderTitle")}
+              body={t("repos.emptyFolderBody")}
+            />
           ) : (
-            <div className="stack" style={{ gap: 2 }}>
+            <div className="stack stack--xs">
               {data.entries.map((e: RepoEntry) => (
                 <button
                   key={e.path}
                   type="button"
-                  className="btn btn--ghost btn--block"
-                  style={{ justifyContent: "space-between" }}
+                  className="btn btn--ghost btn--row"
                   onClick={() => setPath(e.path)}
                   disabled={e.type !== "dir" && e.type !== "file"}
                 >
-                  <span className="row" style={{ gap: 8, alignItems: "center" }}>
+                  <span className="file-row__name">
                     <Icon name={e.type === "dir" ? "folder" : "file"} size={15} />
                     <span className={e.type === "dir" ? "" : "mono"}>{e.name}</span>
                   </span>
-                  <span className="post__meta" style={{ margin: 0 }}>
-                    {e.type === "file" ? peso(e.size) : ""}
-                  </span>
+                  <span className="file-row__meta">{e.type === "file" ? peso(e.size) : ""}</span>
                 </button>
               ))}
             </div>
@@ -543,13 +614,19 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
 
       {data?.kind === "file" && (
         <Surface className="post">
-          <div className="row spread" style={{ flexWrap: "wrap", gap: 8 }}>
+          <div className="row row--top spread">
             <h3 className="mono">{data.file.name}</h3>
-            <div className="row" style={{ gap: 8 }}>
+            <div className="row row--sm">
               <Badge>{peso(data.file.size)}</Badge>
               {data.file.htmlUrl && (
-                <a className="btn btn--ghost" href={data.file.htmlUrl} target="_blank" rel="noreferrer noopener">
-                  <Icon name="external" size={15} /> Ver en GitHub
+                <a
+                  className="btn btn--ghost"
+                  href={data.file.htmlUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Icon name="external" size={15} />
+                  <span className="btn__label">{t("repos.viewOnGithub")}</span>
                 </a>
               )}
               <Button
@@ -557,30 +634,26 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
                 icon="trash"
                 loading={borrar.isPending}
                 onClick={() => {
-                  if (confirm(`¿Borrar ${data.file.path}? Queda en el historial de GitHub.`)) {
+                  if (confirm(t("repos.confirmDelete", { path: data.file.path }))) {
                     borrar.mutate({ path: data.file.path, sha: data.file.sha });
                   }
                 }}
               >
-                Borrar
+                {t("repos.delete")}
               </Button>
             </div>
           </div>
 
-          {borrar.isError && <p className="field__error">{(borrar.error as Error).message}</p>}
+          {borrar.isError && (
+            <p className="field__error" role="alert">
+              {(borrar.error as Error).message}
+            </p>
+          )}
 
           {data.file.tooLarge ? (
-            <EmptyState
-              icon="file"
-              title="Demasiado grande para mostrarlo"
-              body="GitHub no entrega por esta vía los archivos de más de 1 MB."
-            />
+            <EmptyState icon="file" title={t("repos.tooLargeTitle")} body={t("repos.tooLargeBody")} />
           ) : data.file.binary ? (
-            <EmptyState
-              icon="file"
-              title="Archivo binario"
-              body="No es texto, así que no se puede editar acá. Descargalo desde GitHub."
-            />
+            <EmptyState icon="file" title={t("repos.binaryTitle")} body={t("repos.binaryBody")} />
           ) : (
             <EditorDeArchivo
               owner={owner}
@@ -605,6 +678,7 @@ function Explorador({ owner, repo }: { owner: string; repo: string }) {
 
 export function Repos() {
   const qc = useQueryClient();
+  const { t } = useI18n();
 
   const estado = useQuery({ queryKey: ["github", "status"], queryFn: () => api.githubStatus() });
 
@@ -620,9 +694,12 @@ export function Repos() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["repos"] }),
   });
 
+  const title = t("repos.title");
+  const subtitle = t("repos.subtitle");
+
   if (estado.isLoading) {
     return (
-      <Shell title="Repositorios">
+      <Shell title={title} subtitle={subtitle}>
         <Skeleton h={200} r={14} />
       </Shell>
     );
@@ -630,12 +707,12 @@ export function Repos() {
 
   if (!estado.data?.enabled) {
     return (
-      <Shell title="Repositorios">
+      <Shell title={title} subtitle={subtitle}>
         <Surface className="post">
           <EmptyState
             icon="repo"
-            title="La integración con GitHub no está configurada"
-            body="Este servidor no tiene las credenciales de GitHub cargadas."
+            title={t("repos.notConfiguredTitle")}
+            body={t("repos.notConfiguredBody")}
           />
         </Surface>
       </Shell>
@@ -644,7 +721,7 @@ export function Repos() {
 
   if (!estado.data.connection) {
     return (
-      <Shell title="Repositorios">
+      <Shell title={title} subtitle={subtitle}>
         <PedirConexion motivo="sin-conexion" />
       </Shell>
     );
@@ -653,7 +730,7 @@ export function Repos() {
   // La conexión existe pero es anterior al permiso de repositorios.
   if (lista.isError && (lista.error as ApiError).code === "github_scope_missing") {
     return (
-      <Shell title="Repositorios">
+      <Shell title={title} subtitle={subtitle}>
         <PedirConexion motivo="sin-permiso" />
       </Shell>
     );
@@ -665,13 +742,15 @@ export function Repos() {
   const repo = partes[1];
 
   return (
-    <Shell title="Repositorios">
-      <div className="stack" style={{ gap: 14 }}>
+    <Shell title={title} subtitle={subtitle}>
+      <div className="stack stack--md">
         {lista.isLoading ? (
           <Skeleton h={90} r={14} />
         ) : lista.isError ? (
           <Surface className="post">
-            <p className="field__error">{(lista.error as Error).message}</p>
+            <p className="field__error" role="alert">
+              {(lista.error as Error).message}
+            </p>
           </Surface>
         ) : (
           <SelectorDeRepo
@@ -686,11 +765,7 @@ export function Repos() {
         ) : (
           !lista.isLoading && (
             <Surface className="post">
-              <EmptyState
-                icon="repo"
-                title="Elegí un repositorio"
-                body="Arriba están los tuyos. También podés crear uno nuevo."
-              />
+              <EmptyState icon="repo" title={t("repos.pickTitle")} body={t("repos.pickBody")} />
             </Surface>
           )
         )}

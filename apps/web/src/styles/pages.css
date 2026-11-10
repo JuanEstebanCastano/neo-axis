@@ -1,0 +1,720 @@
+/* ============================================================
+   PÁGINAS
+   Estilos propios de una sola vista. Todo lo que se repite en dos o más
+   vistas se gradúa a components.css o layout.css.
+   ============================================================ */
+
+/* ── Feed ────────────────────────────────────────────────────── */
+
+.post {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.post h3 {
+  font-size: var(--fs-lg);
+}
+
+.post p {
+  color: var(--text-2);
+  font-size: 14.5px;
+  max-width: 72ch;
+}
+
+.post__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.post__meta a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* El punto separador y lo que separa viajan juntos: suelto, al envolver la
+   línea quedaba un bullet huérfano colgando al final del renglón. */
+.post__seg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.post__dot {
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.post__av {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-on-soft);
+  font-weight: 800;
+  font-size: var(--fs-xs);
+}
+
+.post__author {
+  color: var(--text-2);
+}
+
+.post--clickable {
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.post--clickable:hover {
+  box-shadow: var(--nm-raised);
+}
+
+.post__body {
+  max-width: 72ch;
+  color: var(--text-2);
+  font-size: 14.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.post__body--muted {
+  color: var(--text-3);
+}
+
+/* Es un <button> de verdad: el único camino del teclado para abrir y cerrar
+   la tarjeta. Por eso tiene alto de objetivo táctil, aunque se lea como un
+   enlace al pie del texto. */
+.post__toggle {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: 0;
+  /* La zona sensible mide 44px, pero sólo 15 llevan tinta. Los márgenes
+     negativos devuelven el aire sobrante al ritmo de la tarjeta, para que el
+     pie no quede flotando lejos del texto. */
+  margin-block: calc(-1 * var(--sp-2));
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.post__toggle svg {
+  transition: transform var(--dur) var(--ease);
+}
+
+.post--open .post__toggle svg {
+  transform: rotate(90deg);
+}
+
+/* ── Colecciones ─────────────────────────────────────────────── */
+
+.coll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+/* Sólo las tarjetas de una rejilla de colecciones se estiran a la altura de
+   la fila. Un formulario con esta misma clase se queda con su alto propio;
+   si no, los de "Mi perfil" quedaban con un vacío enorme debajo del botón. */
+.coll-link .coll {
+  min-height: 150px;
+  height: 100%;
+}
+
+.coll h3 {
+  font-size: var(--fs-lg);
+}
+
+.coll > p {
+  flex: 1;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+
+.coll__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: auto;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.coll__arrow {
+  display: inline-flex;
+  color: var(--accent);
+  transition: transform var(--dur) var(--ease);
+}
+
+.coll-link {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius);
+}
+
+.coll-link:hover .coll__arrow {
+  transform: translateX(4px);
+}
+
+.coll-link:hover .coll {
+  box-shadow: var(--nm-raised);
+}
+
+/* Detalle de colección: contenido y panel de edición. El panel sólo se
+   pone al costado cuando hay ancho de verdad para los dos. */
+.coll-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-7);
+  align-items: start;
+}
+
+.coll-detail--owner {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+@media (max-width: 1040px) {
+  .coll-detail--owner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--nm-flat);
+}
+
+.item-row__ico {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: var(--accent);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.item-row__t {
+  font-weight: 700;
+}
+
+.item-row__note {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+.item-row__ty {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 520px) {
+  .item-row {
+    flex-wrap: wrap;
+  }
+
+  .item-row__ty {
+    width: 100%;
+    padding-left: calc(38px + var(--sp-4));
+  }
+}
+
+/* ── Biblioteca ──────────────────────────────────────────────── */
+
+.book {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.book__cover {
+  display: grid;
+  place-items: center;
+  position: relative;
+  aspect-ratio: 3 / 4.3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--nm-raised-sm);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.book__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book__cover--ph {
+  color: var(--accent);
+  background: radial-gradient(120% 120% at 30% 20%, var(--accent-soft), transparent 60%);
+}
+
+.book:hover .book__cover {
+  box-shadow: var(--nm-raised);
+}
+
+.book__title {
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.3;
+}
+
+.book__author {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+/* ── Detalle de libro ────────────────────────────────────────── */
+
+.detail {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--sp-9);
+  align-items: start;
+}
+
+.detail__cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4.3;
+  border-radius: var(--radius);
+  overflow: hidden;
+  color: var(--accent);
+  box-shadow: var(--nm-raised);
+}
+
+/* Mismo marcador que en la rejilla de la biblioteca, para que un libro sin
+   portada se vea igual en los dos lugares. */
+.detail__cover--ph {
+  background: radial-gradient(120% 120% at 30% 20%, var(--accent-soft), transparent 60%);
+}
+
+.detail__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail__block {
+  margin-top: var(--sp-6);
+}
+
+.detail__block:first-child {
+  margin-top: 0;
+}
+
+.detail__block h3 {
+  margin-bottom: var(--sp-3);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 1040px) {
+  .detail {
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: var(--sp-7);
+  }
+}
+
+@media (max-width: 760px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-6);
+  }
+
+  .detail__cover {
+    width: 180px;
+  }
+}
+
+/* ── Recomendaciones ─────────────────────────────────────────── */
+
+/* Resultados de "Descubrir": separados del buscador, que es lo que se acaba
+   de usar, y no pegados a él. */
+.discover__out {
+  margin-top: var(--sp-6);
+}
+
+.reco {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--nm-flat);
+}
+
+.reco__rank {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-xs);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.reco__t {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.reco__d {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+/* ── Autenticación ───────────────────────────────────────────── */
+
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--sp-6) var(--sp-5);
+}
+
+.auth__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--sp-7) var(--sp-6);
+}
+
+.auth__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.auth__prefs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.auth__head h1 {
+  font-size: var(--fs-xl);
+}
+
+.auth__head p {
+  margin-top: var(--sp-1);
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+
+.auth__seg {
+  width: 100%;
+}
+
+.auth__seg .seg__opt {
+  flex: 1;
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.auth__err {
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.auth__note {
+  color: var(--text-2);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.auth__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: calc(var(--sp-1) * -1);
+}
+
+/* "¿Olvidaste tu contraseña?" y "Explorar sin cuenta": son acciones sueltas
+   al pie de la tarjeta, no enlaces dentro de una frase, así que miden el
+   objetivo táctil completo. En el teléfono es donde más se usan. */
+.auth__alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.auth__alt:hover {
+  color: var(--accent);
+}
+
+.auth__alt--accent {
+  color: var(--accent);
+}
+
+/* ── Perfil ──────────────────────────────────────────────────── */
+
+.profile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-5);
+  padding: var(--sp-6);
+}
+
+.profile-head__av {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent-soft);
+  box-shadow: var(--nm-raised-sm);
+}
+
+.profile-head__av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-head__ini {
+  color: var(--accent-on-soft);
+  font-weight: 800;
+  font-size: var(--fs-3xl);
+}
+
+.profile-head__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-head__info h2 {
+  font-size: var(--fs-xl);
+}
+
+.profile-head__bio {
+  margin-top: var(--sp-2);
+  max-width: 68ch;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.profile-head__web {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-2);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.profile-head__web {
+  padding: 6px 0;
+}
+
+.profile-head__web:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.profile-head__stats {
+  margin-top: var(--sp-3);
+}
+
+@media (max-width: 560px) {
+  .profile-head {
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+
+  .profile-head__av {
+    width: 64px;
+    height: 64px;
+  }
+
+  .profile-head__ini {
+    font-size: var(--fs-xl);
+  }
+}
+
+/* Dos columnas como máximo: con cuatro tarjetas, tres columnas dejaban la
+   última sola y media pantalla vacía al lado. */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+@media (max-width: 880px) {
+  .profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.profile-grid .coll {
+  min-height: 0;
+  gap: var(--sp-4);
+}
+
+.profile-grid .coll h3 {
+  font-size: var(--fs-lg);
+}
+
+/* ── Repositorios ────────────────────────────────────────────── */
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* 34px y no los 44 del resto: una ruta honda son seis o siete botones en el
+   mismo renglón, y a tamaño completo el camino tapaba el contenido. Quedan
+   por encima del mínimo de WCAG 2.5.8 y con separación entre sí. */
+.crumbs .btn--ghost {
+  padding: 6px var(--sp-2);
+  min-height: 34px;
+  font-size: 13.5px;
+}
+
+/* Cada miga viaja con su separador, para que al envolver la línea no quede
+   una barra suelta colgando al final del renglón. */
+.crumbs__step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+/* La carpeta actual: mismo renglón que las demás, pero en peso de título y
+   sin el gesto de botón. */
+.crumbs__here {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  min-height: 34px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.crumbs__sep {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.file-row__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.file-row__name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row__meta {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.result-line--ok {
+  color: var(--ok);
+}
+
+.result-line a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Snippets ────────────────────────────────────────────────── */
+
+/* Cada archivo de una revisión: su nombre y su bloque de código, separados
+   del archivo anterior. */
+.revision__file {
+  margin-top: var(--sp-2);
+}

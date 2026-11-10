@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Neo Axis">
+  <!-- La misma marca que el símbolo del encabezado: teja violeta y una N
+       trazada de un solo recorrido, con las uniones redondeadas del set de
+       íconos. El violeta es el acento accesible (#6441ef), no el brillante. -->
+  <rect width="64" height="64" rx="18" fill="#6441ef"/>
+  <path d="M21 46V21l22 25V21"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="7.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

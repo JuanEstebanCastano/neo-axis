@@ -1,0 +1,15 @@
+{
+  "name": "Neo Axis",
+  "short_name": "Neo Axis",
+  "description": "Libros y repositorios para una comunidad de desarrolladores.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#e8ebf2",
+  "theme_color": "#e8ebf2",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}

@@ -5,10 +5,13 @@ const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: "l
 
 const STORAGE_KEY = "neoaxis-theme";
 
+/** --bg de cada tema. Es el color con el que el teléfono pinta su barra. */
+const BAR_COLOR: Record<Theme, string> = { light: "#e8ebf2", dark: "#2a2d34" };
+
 /**
  * Tema inicial, por prioridad:
  *   1) lo guardado en localStorage (preferencia explícita del usuario),
- *   2) el data-theme que fijó theme-init.js antes de pintar,
+ *   2) el data-theme que fijó prefs-init.js antes de pintar,
  *   3) la preferencia del sistema,
  *   4) "light".
  * Leer localStorage acá hace que la persistencia funcione aunque el script
@@ -35,6 +38,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* ignore */ }
+
+    // Sin esto, la barra del navegador móvil se quedaba con el color del
+    // primer pintado y contrastaba contra la página al conmutar el tema.
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", BAR_COLOR[theme]);
   }, [theme]);
 
   return (

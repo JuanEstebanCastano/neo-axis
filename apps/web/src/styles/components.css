@@ -1,0 +1,583 @@
+/* ============================================================
+   PRIMITIVAS NEUMÓRFICAS
+   Cada bloque de acá tiene un componente de React que le corresponde en
+   src/components/ui.tsx. Si una página necesita un control nuevo, primero
+   se busca acá; recién después se escribe uno propio.
+   ============================================================ */
+
+/* ── Superficie base ─────────────────────────────────────────── */
+
+.surface {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--nm-raised);
+}
+
+.surface--inset {
+  box-shadow: var(--nm-inset);
+}
+
+/* Relleno estándar de una tarjeta con contenido propio. */
+.surface--pad {
+  padding: var(--sp-6);
+}
+
+/* ── Botón: el relieve se HUNDE al presionar (interacción firma) ─ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 42px;
+  padding: 11px var(--sp-5);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--nm-raised-sm);
+  transition: box-shadow var(--dur-press) var(--ease), transform var(--dur-press) var(--ease),
+    color var(--dur-press) var(--ease), background var(--dur) var(--ease);
+}
+
+.btn:hover {
+  color: var(--accent);
+}
+
+.btn:active {
+  box-shadow: var(--nm-inset-sm);
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: var(--nm-flat);
+  transform: none;
+  color: var(--text);
+}
+
+.btn__label {
+  min-width: 0;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 5px 5px 12px var(--sh-dark), -5px -5px 12px var(--sh-light);
+}
+
+.btn--accent:hover {
+  background: var(--accent-strong);
+  color: var(--accent-ink);
+}
+
+.btn--accent:active {
+  box-shadow: var(--nm-inset-sm);
+}
+
+.btn--accent:disabled {
+  color: var(--accent-ink);
+}
+
+.btn--ghost {
+  box-shadow: none;
+  padding: var(--sp-2) var(--sp-3);
+  min-height: 40px;
+}
+
+.btn--ghost:active {
+  box-shadow: var(--nm-inset-sm);
+  transform: none;
+}
+
+.btn--icon {
+  padding: 11px;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  border-radius: 50%;
+}
+
+/* Fila pulsable de una lista (archivos de un repo, revisiones de un gist).
+   Es un botón, pero se lee como renglón: texto a la izquierda, dato a la
+   derecha, y alto suficiente para el dedo. */
+.btn--row {
+  width: 100%;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  text-align: left;
+  box-shadow: none;
+}
+
+.btn--row:active {
+  box-shadow: var(--nm-inset-sm);
+  transform: none;
+}
+
+/* ── Campos de formulario (tallados hacia adentro) ───────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.field__label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.field__hint {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.field__error {
+  font-size: 12.5px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.field__ok {
+  font-size: 12.5px;
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 13px var(--sp-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  color: var(--text);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.input::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
+
+.input:focus {
+  outline: none;
+  box-shadow: var(--nm-inset-sm), 0 0 0 2px var(--accent);
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input--area {
+  min-height: 118px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+/* Un área donde se escribe código necesita ver varias líneas de una vez.
+   Están acá y no en un `style` suelto en la página para que las dos únicas
+   alturas que existen sigan siendo decisión del sistema. */
+.input--area-md { min-height: 160px; }
+.input--area-lg { min-height: 260px; }
+
+/* Un <select> nativo trae su propia flecha, que ni sigue el tema ni respeta
+   el relieve. La apagamos y dibujamos la nuestra con el set de íconos. */
+.select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.input--select {
+  appearance: none;
+  padding-right: var(--sp-8);
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.select__chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-4);
+  display: inline-flex;
+  color: var(--text-3);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+/* El botón "Examinar" de un <input type="file"> también es del sistema. */
+.input--file {
+  padding: var(--sp-2);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.input--file::file-selector-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-right: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--nm-raised-sm);
+  cursor: pointer;
+  transition: color var(--dur-press) var(--ease), box-shadow var(--dur-press) var(--ease);
+}
+
+.input--file::file-selector-button:hover {
+  color: var(--accent);
+}
+
+/* Pie de formulario: el aviso queda a la izquierda y la acción SIEMPRE a la
+   derecha, exista o no el aviso. Con `space-between` a secas, el botón se
+   corría al borde izquierdo cuando no había nada que avisar. */
+.form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.form-foot__note {
+  margin-right: auto;
+  min-width: 0;
+}
+
+/* ── Control segmentado ──────────────────────────────────────── */
+
+.seg {
+  display: inline-flex;
+  padding: var(--sp-1);
+  gap: var(--sp-1);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--nm-inset-sm);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.seg::-webkit-scrollbar {
+  display: none;
+}
+
+.seg__opt {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: var(--sp-2) var(--sp-5);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: box-shadow var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.seg__opt:hover {
+  color: var(--text);
+}
+
+.seg__opt[aria-checked="true"],
+.seg__opt.is-active {
+  color: var(--accent);
+  box-shadow: var(--nm-raised-sm);
+}
+
+.seg__opt:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Variante compacta: el conmutador de idioma del encabezado. */
+.seg--compact .seg__opt {
+  /* 32 + los 8 del relleno del carril = 40px de alto tocable, igual que el
+     interruptor de tema que va a su lado. */
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
+/* ── Interruptor booleano ────────────────────────────────────── */
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  min-height: var(--tap);
+  padding: var(--sp-1) 2px;
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+/* El botón mide los 44px del objetivo táctil; el carril de 26px que se ve
+   lo dibuja el pseudoelemento, centrado dentro. Hecho al revés —carril de
+   26px y zona sensible agrandada con un pseudoelemento— el clic no llegaba:
+   dentro de un <button>, el pseudoelemento no recibe el evento. */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: var(--tap);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  inset: 9px 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.switch__knob {
+  position: absolute;
+  top: 12px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--nm-raised-sm);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.switch.is-on .switch__knob {
+  transform: translateX(20px);
+  background: var(--accent);
+}
+
+/* ── Badges y calificación ───────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--sp-1) 11px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text-2);
+  box-shadow: var(--nm-flat);
+}
+
+.badge--accent {
+  color: var(--accent-on-soft);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--star);
+}
+
+.stars--empty {
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* ── Carga ───────────────────────────────────────────────────── */
+
+/* Zona de espera: el indicador centrado y una altura reservada, para que lo
+   que llega después no empuje la página hacia abajo de golpe. */
+.wait {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  padding: var(--sp-6);
+}
+
+.wait--tall { min-height: 190px; }
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--sh-dark);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner--sm {
+  width: 15px;
+  height: 15px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Estado vacío ────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--sp-3);
+  max-width: 46ch;
+  margin-inline: auto;
+  padding: var(--sp-9) var(--sp-6);
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--accent);
+  box-shadow: var(--nm-raised-sm);
+}
+
+.empty__title {
+  font-size: 19px;
+}
+
+.empty__body {
+  color: var(--text-2);
+  font-size: 14.5px;
+}
+
+.empty__action {
+  margin-top: var(--sp-2);
+}
+
+/* Cuando el estado vacío es el contenido de la tarjeta, la tarjeta no pone
+   su propio relleno encima: si no, quedan dos márgenes sumados. */
+.surface > .empty:only-child {
+  padding-inline: var(--sp-5);
+}
+
+/* ── Separador ───────────────────────────────────────────────── */
+
+/* En neumorfismo una línea divisoria es un surco, no un borde: dos sombras
+   opuestas sobre una franja de 2px. */
+.rule {
+  height: 2px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: inset 1px 1px 2px var(--sh-dark), inset -1px -1px 2px var(--sh-light);
+}
+
+/* ── Aviso ───────────────────────────────────────────────────── */
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
+}
+
+.notice__text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.notice__text svg {
+  flex-shrink: 0;
+  color: var(--ok);
+}
+
+.notice--alert .notice__text svg {
+  color: var(--danger);
+}
+
+/* ── Bloque de código ────────────────────────────────────────── */
+
+.code {
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre;
+  tab-size: 2;
+  /* Sin esto, el bloque es un ítem flexible con min-width:auto y se niega a
+     encogerse por debajo de su línea más larga: en el teléfono se salía de
+     la tarjeta en vez de ofrecer su propio desplazamiento. */
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+  max-height: 340px;
+  overscroll-behavior: contain;
+}

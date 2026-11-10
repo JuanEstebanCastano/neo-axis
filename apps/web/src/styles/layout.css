@@ -1,0 +1,594 @@
+/* ============================================================
+   ESTRUCTURA: shell, navegación, encabezado y utilidades
+   ============================================================ */
+
+/* ── Utilidades de composición ───────────────────────────────
+   Un juego corto y cerrado. Existen para que las páginas no tengan que
+   escribir `style={{ display:"flex", gap:8 }}` quince veces; no para
+   convertirse en un framework de utilidades. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+
+.stack--xs { gap: 2px; }
+.stack--sm { gap: var(--sp-2); }
+.stack--md { gap: var(--sp-3); }
+.stack--lg { gap: var(--sp-6); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.row--sm { gap: var(--sp-2); }
+.row--top { align-items: flex-start; }
+.row--end { align-items: flex-end; }
+.row--right { justify-content: flex-end; }
+.row--center { justify-content: center; }
+
+.spread { justify-content: space-between; }
+
+/* Ocupa el espacio sobrante sin empujar a los demás. */
+.grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Columna de formulario dentro de una fila: crece, pero se baja a la línea
+   siguiente antes de volverse inusable. La base es el ancho mínimo con el
+   que el campo todavía se puede escribir. */
+.col {
+  flex: 1 1 210px;
+  min-width: 0;
+}
+
+.col--sm { flex: 1 1 140px; }
+.col--lg { flex: 2 1 280px; }
+
+/* Medida de lectura: un párrafo suelto no debe pasar de ~70 caracteres. */
+.measure { max-width: 68ch; }
+
+/* Medida de formulario. Un formulario corto estirado a los 1120px del
+   contenido obliga a barrer la pantalla de lado a lado para pasar de la
+   etiqueta al campo. */
+.narrow { max-width: 520px; }
+
+.block-gap { margin-bottom: var(--sp-5); }
+
+.grid { display: grid; gap: var(--sp-5); }
+.grid--cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.grid--books { grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr)); }
+
+/* Único momento de autor del sistema: el contenido entra una vez al montar. */
+.page {
+  animation: rise 0.5s var(--ease) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Salto al contenido ──────────────────────────────────────── */
+
+/* Fuera de la pantalla hasta que el teclado lo alcanza; entonces baja y se
+   muestra como cualquier botón del sistema. No se oculta con `display:none`
+   ni con `.sr-only` a secas: tiene que poder recibir el foco. */
+.skip {
+  position: fixed;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: calc(var(--z-tabbar) + 1);
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  box-shadow: var(--nm-raised-sm);
+  transform: translateY(calc(-100% - var(--sp-5)));
+  transition: transform var(--dur) var(--ease);
+}
+
+.skip:focus-visible {
+  transform: translateY(0);
+}
+
+/* El destino del salto no es un control: recibe el foco para que el lector
+   de pantalla siga leyendo desde acá, pero dibujarle el contorno alrededor
+   de toda la página sólo sería ruido. El siguiente Tab ya muestra el foco
+   sobre el primer elemento real del contenido. */
+.page:focus,
+.page:focus-visible {
+  outline: none;
+}
+
+/* ── Shell ───────────────────────────────────────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: 252px 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-5);
+}
+
+.sidebar__nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sidebar__foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-top: var(--sp-4);
+}
+
+/* ── Marca e identidad ───────────────────────────────────────── */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-5);
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand--user {
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--nm-flat);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.brand--user:hover {
+  box-shadow: var(--nm-raised-sm);
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: var(--nm-raised-sm);
+}
+
+.brand__av {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--accent-soft);
+  box-shadow: var(--nm-raised-sm);
+}
+
+.brand__av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand__ini {
+  font-weight: 800;
+  font-size: 19px;
+  color: var(--accent);
+}
+
+.brand__meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.brand__name {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand__sub {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Navegación ──────────────────────────────────────────────── */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.nav__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-3) 15px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.nav__item:hover {
+  color: var(--text);
+}
+
+.nav__item.is-active {
+  color: var(--accent);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.nav__item svg {
+  flex-shrink: 0;
+}
+
+/* ── Contenido ───────────────────────────────────────────────── */
+
+.main {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: var(--sp-7) var(--sp-8) 72px;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-7);
+}
+
+.topbar__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.topbar__title {
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
+.topbar__title h1 {
+  font-size: var(--fs-2xl);
+}
+
+.topbar__title p {
+  margin-top: var(--sp-1);
+  max-width: 62ch;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  /* Las acciones se alinean con la línea base del título, no con su centro:
+     un subtítulo largo no debe empujarlas hacia abajo. */
+  padding-top: 2px;
+}
+
+/* Barra de utilidades: sólo aparece en pantallas chicas, donde la columna
+   lateral se convierte en barra inferior y su pie deja de verse. Sin esto,
+   en el teléfono no había forma de cerrar sesión ni de entrar. */
+.topbar__util {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-1);
+}
+
+.topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 800;
+  font-size: var(--fs-base);
+  letter-spacing: -0.03em;
+  color: inherit;
+}
+
+.topbar__brand .brand__mark {
+  width: 32px;
+  height: 32px;
+  font-size: var(--fs-base);
+  border-radius: var(--radius-xs);
+}
+
+.topbar__prefs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* ── Etiqueta de usuario ─────────────────────────────────────── */
+
+.usertag {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 5px var(--sp-4) 5px 5px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--nm-flat);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.usertag:hover {
+  box-shadow: var(--nm-raised-sm);
+  color: var(--accent);
+}
+
+.usertag__av {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent-soft);
+  color: var(--accent-on-soft);
+}
+
+.usertag__av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.usertag__name {
+  font-weight: 700;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14ch;
+}
+
+/* Sólo el avatar: en la barra de utilidades del teléfono el nombre no cabe,
+   pero el enlace al perfil tiene que seguir existiendo. */
+.usertag--compact {
+  padding: 5px;
+  min-height: 40px;
+}
+
+/* ── Interruptor de tema ─────────────────────────────────────── */
+
+.theme-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 40px;
+  padding: 5px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.theme-switch__knob {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--nm-raised-sm);
+  transform: translateX(0);
+  transition: transform 0.28s var(--ease);
+}
+
+:root[data-theme="dark"] .theme-switch__knob {
+  transform: translateX(24px);
+}
+
+/* ── Barra inferior en pantallas chicas ──────────────────────── */
+
+@media (max-width: 1100px) {
+  .shell {
+    grid-template-columns: 224px 1fr;
+  }
+
+  .main {
+    padding-inline: var(--sp-6);
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: auto;
+    z-index: var(--z-tabbar);
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    padding: var(--sp-2) var(--sp-3);
+    padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom));
+    background: var(--surface);
+    box-shadow: 0 -6px 18px var(--sh-dark);
+  }
+
+  .brand,
+  .sidebar__foot {
+    display: none;
+  }
+
+  .sidebar__nav {
+    flex: 1;
+    overflow: visible;
+  }
+
+  .nav {
+    flex-direction: row;
+    justify-content: space-around;
+  }
+
+  .nav__item {
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    justify-content: center;
+    min-height: 52px;
+    padding: var(--sp-2) var(--sp-1);
+    border-radius: var(--radius-xs);
+    font-size: 11.5px;
+    letter-spacing: -0.01em;
+    text-align: center;
+  }
+
+  .nav__label {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar__util {
+    display: flex;
+  }
+
+  .topbar__actions .usertag {
+    display: none;
+  }
+
+  .main {
+    /* Alto real de la barra inferior (50 + 8·2 ≈ 66) más aire y el margen
+       seguro del teléfono: el último elemento nunca queda tapado. */
+    padding: var(--sp-6) var(--sp-5)
+      calc(var(--sp-9) + 66px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-6);
+  }
+
+  .topbar__title h1 {
+    font-size: var(--fs-xl);
+  }
+
+  .topbar__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* En columna, flex-basis mide ALTO: el 18rem que reparte el ancho en
+     escritorio abría acá un hueco de 288px entre el subtítulo y las
+     acciones. */
+  .topbar__title {
+    flex: 0 0 auto;
+  }
+
+  .topbar__actions {
+    padding-top: 0;
+  }
+
+  /* Sólo la acción principal se estira a lo ancho. Un botón secundario
+     ocupando todo el renglón se lee como si fuera el camino a seguir. */
+  .topbar__actions > .btn--accent {
+    flex: 1 1 auto;
+  }
+}
+
+/* "Colecciones" necesita unos 70px a 11.5px. Con seis pestañas, ese ancho
+   deja de existir por debajo de 520px: ahí la etiqueta se va a los lectores
+   de pantalla y queda el ícono, en vez de recortarse a "Coleccione…".
+   El nombre accesible del enlace no cambia. */
+@media (max-width: 520px) {
+  .nav__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .nav__item {
+    gap: 0;
+    min-height: var(--tap);
+  }
+}
+
+@media (max-width: 420px) {
+  .main {
+    padding-inline: var(--sp-4);
+  }
+
+  /* Por debajo de este ancho, la marca se queda sólo con su símbolo para
+     que la fila de preferencias no se parta en dos. */
+  .topbar__brand-name {
+    display: none;
+  }
+
+  .topbar__prefs {
+    gap: var(--sp-1);
+  }
+}

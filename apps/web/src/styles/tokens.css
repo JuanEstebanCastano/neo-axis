@@ -2,42 +2,105 @@
    SISTEMA NEUMÓRFICO — tokens
    El relieve nace de dos sombras opuestas sobre un fondo del mismo color
    que los elementos. El texto NUNCA es neumórfico: va en alto contraste.
+
+   Todo valor que se repita en más de un lugar vive acá. Si un componente
+   necesita un número que no está en esta hoja, primero hay que preguntarse
+   si el sistema necesita ese valor o si el componente se está desviando.
    ============================================================ */
 
 :root,
 :root[data-theme="light"] {
+  /* ── Color ───────────────────────────────────────────────── */
   --bg: #e8ebf2;
   --surface: #e8ebf2;
 
   --text: #272b33;
-  --text-2: #5c6675;
-  --text-3: #8b94a3;
+  --text-2: #4a5363;
+  --text-3: #5f6878;
 
-  --accent: #7c5cff;
-  --accent-strong: #6a47f5;
+  --accent: #6441ef;
+  --accent-strong: #5633d8;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(124, 92, 255, 0.14);
+  --accent-soft: rgba(100, 65, 239, 0.13);
+  --accent-on-soft: #5633d8;
 
-  --danger: #cf4559;
-  --ok: #2f9e78;
-  --star: #e0a23b;
+  --danger: #b32639;
+  --ok: #1a6e50;
+  --star: #8a5e00;
 
   --sh-dark: rgba(156, 165, 184, 0.55);
   --sh-light: rgba(255, 255, 255, 0.95);
 
-  --radius: 20px;
-  --radius-sm: 14px;
-  --radius-xs: 10px;
+  /* Contraste medido contra --bg, no estimado. Cada color que alguna vez
+     lleva texto encima cumple 4.5:1; los dos temas se miden por separado.
 
-  /* presets de relieve */
+       claro   texto 11.9 · texto-2 6.5 · texto-3 4.7 · acento 5.0
+               acento sobre accent-soft 5.1 · tinta sobre acento 5.9
+               error 5.4 · ok 5.2 · estrella 4.8
+       oscuro  texto 11.6 · texto-2 6.1 · texto-3 4.7 · acento 5.2
+               acento sobre accent-soft 5.0 · tinta sobre acento 6.9
+               error 5.4 · ok 7.2 · estrella 7.3
+
+     --text-3 se usa en metadatos y placeholders, que son texto de cuerpo:
+     aclararlo "para que se note menos" los vuelve ilegibles. Y el acento es
+     el violeta profundo, no el brillante: un acento que no puede llevar
+     texto obliga a inventarse un segundo violeta para cada etiqueta. */
+
+  /* ── Relieve ─────────────────────────────────────────────── */
   --nm-raised: 7px 7px 15px var(--sh-dark), -7px -7px 15px var(--sh-light);
   --nm-raised-sm: 4px 4px 9px var(--sh-dark), -4px -4px 9px var(--sh-light);
   --nm-flat: 3px 3px 7px var(--sh-dark), -3px -3px 7px var(--sh-light);
   --nm-inset: inset 4px 4px 9px var(--sh-dark), inset -4px -4px 9px var(--sh-light);
   --nm-inset-sm: inset 3px 3px 6px var(--sh-dark), inset -3px -3px 6px var(--sh-light);
 
-  --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  /* ── Forma ───────────────────────────────────────────────── */
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-xs: 10px;
+  --radius-pill: 999px;
+
+  /* ── Ritmo ───────────────────────────────────────────────── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 56px;
+
+  /* ── Tipografía ──────────────────────────────────────────── */
+  --font-ui: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 27px;
+  --fs-3xl: 30px;
+
+  /* ── Movimiento ──────────────────────────────────────────── */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-press: 130ms;
+  --dur-fast: 160ms;
+  --dur: 220ms;
+  --dur-slow: 300ms;
+
+  /* ── Foco ────────────────────────────────────────────────── */
+  /* Contorno, no box-shadow: así el anillo respeta el radio real de cada
+     control y no le borra el relieve al dibujarse encima. */
+  --focus-width: 2px;
+  --focus-offset: 3px;
+
+  /* ── Alturas mínimas de objetivo táctil ──────────────────── */
+  --tap: 44px;
+
+  /* ── Capas ───────────────────────────────────────────────── */
+  --z-tabbar: 30;
 }
 
 :root[data-theme="dark"] {
@@ -46,15 +109,16 @@
 
   --text: #e9ebf1;
   --text-2: #a6adba;
-  --text-3: #767f8e;
+  --text-3: #8f98a8;
 
-  --accent: #9d82ff;
-  --accent-strong: #b29bff;
+  --accent: #a78dff;
+  --accent-strong: #c0aeff;
   --accent-ink: #171320;
-  --accent-soft: rgba(157, 130, 255, 0.18);
+  --accent-soft: rgba(167, 141, 255, 0.2);
+  --accent-on-soft: #c0aeff;
 
-  --danger: #e56b7a;
-  --ok: #4fc0a0;
+  --danger: #ef8191;
+  --ok: #5fcfae;
   --star: #e6b45a;
 
   --sh-dark: rgba(0, 0, 0, 0.55);

@@ -24,13 +24,13 @@ export interface BookCard {
 export async function listBooks(db: Database, limit: number): Promise<BookCard[]> {
   const { rows } = await sql<BookCard>`
     SELECT b.id::text AS id, b.title,
-           b.publication_year AS "publicationYear",
-           b.cover_url AS "coverUrl",
-           b.language_code AS "languageCode",
-           COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
-           (SELECT round(avg(rating)::numeric, 1)
+          b.publication_year AS "publicationYear",
+          b.cover_url AS "coverUrl",
+          b.language_code AS "languageCode",
+          COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
+          (SELECT round(avg(rating)::numeric, 1)
               FROM app.book_reviews r
-             WHERE r.book_id = b.id AND r.deleted_at IS NULL) AS "ratingAvg"
+              WHERE r.book_id = b.id AND r.deleted_at IS NULL) AS "ratingAvg"
     FROM app.books b
     LEFT JOIN app.book_author_links bal ON bal.book_id = b.id
     LEFT JOIN app.book_authors ba ON ba.id = bal.author_id
@@ -45,13 +45,13 @@ export async function listBooks(db: Database, limit: number): Promise<BookCard[]
 export async function getBook(db: Database, id: string) {
   const { rows } = await sql<BookCard>`
     SELECT b.id::text AS id, b.title,
-           b.publication_year AS "publicationYear",
-           b.cover_url AS "coverUrl",
-           b.language_code AS "languageCode",
-           COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
-           (SELECT round(avg(rating)::numeric, 1)
+          b.publication_year AS "publicationYear",
+          b.cover_url AS "coverUrl",
+          b.language_code AS "languageCode",
+          COALESCE(array_agg(DISTINCT ba.name) FILTER (WHERE ba.name IS NOT NULL), '{}') AS authors,
+          (SELECT round(avg(rating)::numeric, 1)
               FROM app.book_reviews r
-             WHERE r.book_id = b.id AND r.deleted_at IS NULL) AS "ratingAvg"
+              WHERE r.book_id = b.id AND r.deleted_at IS NULL) AS "ratingAvg"
     FROM app.books b
     LEFT JOIN app.book_author_links bal ON bal.book_id = b.id
     LEFT JOIN app.book_authors ba ON ba.id = bal.author_id

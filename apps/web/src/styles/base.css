@@ -1,5 +1,9 @@
 @import "./tokens.css";
 
+/* ============================================================
+   Reset acotado y superficies que da el navegador
+   ============================================================ */
+
 *,
 *::before,
 *::after {
@@ -17,19 +21,26 @@ html {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Manrope", system-ui, -apple-system, sans-serif;
-  font-size: 15px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  transition: background 0.3s var(--ease), color 0.3s var(--ease);
+  transition: background var(--dur-slow) var(--ease), color var(--dur-slow) var(--ease);
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-weight: 800;
   text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 a {
@@ -45,13 +56,31 @@ button {
   background: none;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font: inherit;
   color: inherit;
 }
 
-code, pre, .mono {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+img {
+  display: block;
+  max-width: 100%;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Las cifras en datos y métricas van tabulares: así una lista de tamaños o
+   de porcentajes no baila de ancho entre fila y fila. */
+.badge,
+.stars,
+.reco__d,
+.item-row__ty {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Superficies del navegador tematizadas desde la paleta ── */
@@ -65,11 +94,19 @@ code, pre, .mono {
   accent-color: var(--accent);
   color-scheme: light;
 }
-:root[data-theme="dark"] { color-scheme: dark; }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* El foco es un contorno, no una sombra: respeta el radio propio de cada
+   control y no le pisa el relieve neumórfico al dibujarse. */
 :focus-visible {
-  outline: none;
-  box-shadow: var(--ring);
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+a:focus-visible {
   border-radius: var(--radius-xs);
 }
 
@@ -77,18 +114,47 @@ code, pre, .mono {
   scrollbar-width: thin;
   scrollbar-color: var(--sh-dark) transparent;
 }
-*::-webkit-scrollbar { width: 11px; height: 11px; }
-*::-webkit-scrollbar-track { background: transparent; }
+
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 *::-webkit-scrollbar-thumb {
   background: var(--sh-dark);
   border: 3px solid var(--bg);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
-*::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+}
+
+/* Texto visible sólo para lectores de pantalla. Lo usan los ítems de la
+   barra inferior en móvil, donde la etiqueta se oculta pero el nombre
+   accesible tiene que seguir existiendo. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

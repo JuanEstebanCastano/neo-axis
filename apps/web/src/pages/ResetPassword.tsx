@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Surface, Button, Field, Input } from "../components/ui";
+import { AuthLayout } from "../components/AuthLayout";
+import { Button, Field, Input } from "../components/ui";
+import { useI18n } from "../context/I18nContext";
 import { api, ApiError } from "../lib/api";
 
 export function ResetPassword() {
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
 
@@ -18,7 +21,7 @@ export function ResetPassword() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (tooShort || mismatch) {
-      setError(tooShort ? "La contraseña debe tener al menos 12 caracteres." : "Las contraseñas no coinciden.");
+      setError(t(tooShort ? "reset.tooShortLong" : "reset.mismatchLong"));
       return;
     }
     setBusy(true);
@@ -27,55 +30,85 @@ export function ResetPassword() {
       await api.resetPassword({ token, newPassword: form.newPassword });
       setDone(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo restablecer. El enlace pudo expirar.");
+      setError(err instanceof ApiError ? err.message : t("reset.failed"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="auth">
-      <Surface className="auth__card page">
-        <div className="auth__brand">
-          <span className="brand__mark">N</span>
-          <div className="auth__head">
-            <h1>Nueva contraseña</h1>
-            <p>Elegí una contraseña nueva para tu cuenta.</p>
-          </div>
-        </div>
-
-        {!token ? (
-          <>
-            <p className="auth__err">El enlace es inválido o está incompleto.</p>
-            <Link to="/recuperar"><Button variant="accent" block>Pedir un enlace nuevo</Button></Link>
-          </>
-        ) : done ? (
-          <>
-            <p style={{ color: "var(--text-2)", fontSize: 14.5, lineHeight: 1.6 }}>
-              ¡Listo! Tu contraseña se actualizó y se cerraron las sesiones anteriores.
-              Ya podés iniciar sesión con la nueva contraseña.
-            </p>
-            <Link to="/auth"><Button variant="accent" block>Iniciar sesión</Button></Link>
-          </>
-        ) : (
-          <form className="auth__form" onSubmit={submit}>
-            <Field label="Nueva contraseña" hint="Mínimo 12 caracteres." error={tooShort ? "Mínimo 12 caracteres." : undefined}>
-              <Input type="password" value={form.newPassword} onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))} autoComplete="new-password" required />
-            </Field>
-            <Field label="Repetir contraseña" error={mismatch ? "No coincide." : undefined}>
-              <Input type="password" value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} autoComplete="new-password" required />
-            </Field>
-            {error && <p className="auth__err">{error}</p>}
-            <Button type="submit" variant="accent" block loading={busy} disabled={!form.newPassword || !form.confirm}>
-              Guardar contraseña
+    <AuthLayout
+      title={t("reset.title")}
+      subtitle={t("reset.subtitle")}
+      foot={
+        <Link to="/auth" className="auth__alt">
+          ← {t("forgot.backToSignIn")}
+        </Link>
+      }
+    >
+      {!token ? (
+        <>
+          <p className="auth__err" role="alert">
+            {t("reset.invalidLink")}
+          </p>
+          <Link to="/recuperar">
+            <Button variant="accent" block>
+              {t("reset.requestNew")}
             </Button>
-          </form>
-        )}
+          </Link>
+        </>
+      ) : done ? (
+        <>
+          <p className="auth__note">{t("reset.done")}</p>
+          <Link to="/auth">
+            <Button variant="accent" block>
+              {t("common.signIn")}
+            </Button>
+          </Link>
+        </>
+      ) : (
+        <form className="auth__form" onSubmit={submit}>
+          <Field
+            label={t("reset.newPassword")}
+            hint={t("reset.tooShort")}
+            error={tooShort ? t("reset.tooShort") : undefined}
+          >
+            <Input
+              type="password"
+              value={form.newPassword}
+              onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
 
-        <p className="auth__alt">
-          <Link to="/auth">← Volver a iniciar sesión</Link>
-        </p>
-      </Surface>
-    </div>
+          <Field label={t("reset.repeat")} error={mismatch ? t("reset.mismatch") : undefined}>
+            <Input
+              type="password"
+              value={form.confirm}
+              onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
+
+          {error && (
+            <p className="auth__err" role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            variant="accent"
+            block
+            loading={busy}
+            disabled={!form.newPassword || !form.confirm}
+          >
+            {t("reset.submit")}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

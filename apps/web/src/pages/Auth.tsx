@@ -1,18 +1,36 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { Surface, Button, Field, Input } from "../components/ui";
+import { AuthLayout } from "../components/AuthLayout";
+import { Button, Field, Input, Segmented, Spinner } from "../components/ui";
+import { Icon } from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import { ApiError } from "../lib/api";
+
+type Mode = "login" | "register";
 
 export function Auth() {
   const { user, ready, login, register } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<Mode>("login");
   const [form, setForm] = useState({ username: "", displayName: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (ready && user) return <Navigate to="/" replace />;
+  // Mientras no se sepa si ya hay sesión, no se pinta el formulario: quien
+  // entra con sesión viva veía el "Ingresar" completo durante un instante y
+  // después la página saltaba sola. Primero se espera, después se decide.
+  if (!ready)
+    return (
+      <AuthLayout title={t("auth.welcomeBack")} subtitle={t("auth.tagline")}>
+        <div className="wait wait--tall">
+          <Spinner />
+        </div>
+      </AuthLayout>
+    );
+
+  if (user) return <Navigate to="/" replace />;
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -26,67 +44,100 @@ export function Auth() {
       else await register(form);
       navigate("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Algo salió mal. Probá de nuevo.");
+      setError(err instanceof ApiError ? err.message : t("common.somethingWrong"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="auth">
-      <Surface className="auth__card page">
-        <div className="auth__brand">
-          <span className="brand__mark">N</span>
-          <div className="auth__head">
-            <h1>{mode === "login" ? "Hola de nuevo" : "Unite a Neo Axis"}</h1>
-            <p>Libros y código, en un mismo lugar.</p>
-          </div>
-        </div>
-
-        <div className="seg" role="tablist">
-          <button className={`seg__opt ${mode === "login" ? "is-active" : ""}`} onClick={() => setMode("login")} role="tab" aria-selected={mode === "login"}>
-            Ingresar
-          </button>
-          <button className={`seg__opt ${mode === "register" ? "is-active" : ""}`} onClick={() => setMode("register")} role="tab" aria-selected={mode === "register"}>
-            Crear cuenta
-          </button>
-        </div>
-
-        <form className="auth__form" onSubmit={submit}>
-          {mode === "register" && (
-            <>
-              <Field label="Usuario">
-                <Input value={form.username} onChange={set("username")} placeholder="ada_lovelace" autoComplete="username" required />
-              </Field>
-              <Field label="Nombre para mostrar">
-                <Input value={form.displayName} onChange={set("displayName")} placeholder="Ada Lovelace" required />
-              </Field>
-            </>
+    <AuthLayout
+      title={t(mode === "login" ? "auth.welcomeBack" : "auth.join")}
+      subtitle={t("auth.tagline")}
+      foot={
+        <>
+          {mode === "login" && (
+            <Link to="/recuperar" className="auth__alt">
+              {t("auth.forgot")}
+            </Link>
           )}
-          <Field label="Correo">
-            <Input type="email" value={form.email} onChange={set("email")} placeholder="vos@ejemplo.com" autoComplete="email" required />
-          </Field>
-          <Field label="Contraseña" hint={mode === "register" ? "Mínimo 12 caracteres." : undefined}>
-            <Input type="password" value={form.password} onChange={set("password")} placeholder="••••••••••••" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
-          </Field>
+          <Link to="/" className="auth__alt auth__alt--accent">
+            {t("auth.explore")}
+            <Icon name="arrow" size={15} />
+          </Link>
+        </>
+      }
+    >
+      <Segmented
+        className="auth__seg"
+        label={t("auth.mode")}
+        value={mode}
+        onChange={(next) => {
+          setMode(next);
+          setError(null);
+        }}
+        options={[
+          { value: "login", label: t("common.signIn") },
+          { value: "register", label: t("common.createAccount") },
+        ]}
+      />
 
-          {error && <p className="auth__err">{error}</p>}
+      <form className="auth__form" onSubmit={submit}>
+        {mode === "register" && (
+          <>
+            <Field label={t("auth.username")}>
+              <Input
+                value={form.username}
+                onChange={set("username")}
+                placeholder={t("auth.usernamePlaceholder")}
+                autoComplete="username"
+                required
+              />
+            </Field>
+            <Field label={t("auth.displayName")}>
+              <Input
+                value={form.displayName}
+                onChange={set("displayName")}
+                placeholder={t("auth.displayNamePlaceholder")}
+                autoComplete="name"
+                required
+              />
+            </Field>
+          </>
+        )}
 
-          <Button type="submit" variant="accent" block loading={busy}>
-            {mode === "login" ? "Ingresar" : "Crear cuenta"}
-          </Button>
-        </form>
+        <Field label={t("auth.email")}>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            placeholder={t("auth.emailPlaceholder")}
+            autoComplete="email"
+            required
+          />
+        </Field>
 
-        {mode === "login" && (
-          <p className="auth__alt">
-            <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
+        <Field label={t("auth.password")} hint={mode === "register" ? t("auth.passwordHint") : undefined}>
+          <Input
+            type="password"
+            value={form.password}
+            onChange={set("password")}
+            placeholder="••••••••••••"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            required
+          />
+        </Field>
+
+        {error && (
+          <p className="auth__err" role="alert">
+            {error}
           </p>
         )}
 
-        <p className="auth__alt">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Explorar sin cuenta →</a>
-        </p>
-      </Surface>
-    </div>
+        <Button type="submit" variant="accent" block loading={busy}>
+          {t(mode === "login" ? "common.signIn" : "common.createAccount")}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
