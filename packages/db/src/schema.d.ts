@@ -5,6 +5,8 @@
 
 import type { ColumnType } from "kysely";
 
+export type AttachmentType = "book" | "repository" | "snippet";
+
 export type BookAccessLevel = "community" | "public" | "restricted";
 
 export type BookFileFormat = "epub" | "mobi" | "pdf";
@@ -368,6 +370,18 @@ export interface PostAllowedUsers {
   userId: string;
 }
 
+export interface PostAttachments {
+  attachmentType: AttachmentType;
+  bookId: string | null;
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  note: string | null;
+  postId: string;
+  repositoryId: string | null;
+  snippetId: string | null;
+  sortOrder: Generated<number>;
+}
+
 export interface PostBookmarks {
   createdAt: Generated<Timestamp>;
   postId: string;
@@ -607,6 +621,7 @@ export interface DB {
   permissions: Permissions;
   postAllowedRoles: PostAllowedRoles;
   postAllowedUsers: PostAllowedUsers;
+  postAttachments: PostAttachments;
   postBookmarks: PostBookmarks;
   postEvents: PostEvents;
   postGithubRepositories: PostGithubRepositories;

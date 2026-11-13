@@ -461,6 +461,27 @@ export const es = {
   "community.replyTo": "Responder a @{user}",
   "community.closeThread": "Cerrar",
   "community.deleteComment": "Borrar",
+
+  // ── Adjuntos de un mensaje ──
+  "attach.add": "Adjuntar",
+  "attach.what": "Qué adjuntas",
+  "attach.book": "Libro",
+  "attach.snippet": "Código",
+  "attach.repo": "Repositorio",
+  "attach.choose": "Elige…",
+  "attach.noBooks": "Tu biblioteca está vacía. Añade un libro (o pega su enlace) desde Biblioteca.",
+  "attach.noSnippets": "Todavía no tienes fragmentos de código guardados.",
+  "attach.repoUrl": "Dirección del repositorio",
+  "attach.repoUrlHint": "Pega la URL de GitHub, o escribe usuario/repositorio.",
+  "attach.note": "Por qué lo adjuntas",
+  "attach.noteHint": "Opcional. Por ejemplo: el capítulo 4 explica justo esto.",
+  "attach.save": "Adjuntar",
+  "attach.cancel": "Cancelar",
+  "attach.download": "Descargar",
+  "attach.read": "Leer",
+  "attach.open": "Abrir en GitHub",
+  "attach.remove": "Quitar",
+  "attach.goToLibrary": "Ir a Biblioteca",
 } as const;
 
 export type TranslationKey = keyof typeof es;

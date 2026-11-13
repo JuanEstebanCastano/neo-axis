@@ -22,7 +22,10 @@ import {
   updateSnippet,
 } from "./service.js";
 import { PERMISSIONS } from "../../lib/rbac.js";
-import { badRequest } from "../../lib/errors.js";
+import { canViewPost } from "../../lib/rbac.js";
+import { nombreDeArchivo } from "./filenames.js";
+import { browse } from "../repos/service.js";
+import { badRequest, notFound } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 
 import {
@@ -45,6 +48,94 @@ export const snippetRoutes: FastifyPluginAsync = async (app) => {
       await app.requirePermission(PERMISSIONS.postsEditOwn)(req);
     },
   ];
+
+  /**
+   * Bajarse el código como archivo.
+   *
+   * Texto plano con Content-Disposition: attachment, que es lo que hace que
+   * el navegador lo guarde en vez de mostrarlo. El nombre sale de la misma
+   * función que ya usan los gists, así que el archivo se llama igual en los
+   * dos sitios.
+   */
+  app.get("/snippets/:id/raw", async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const snippet = await app.db
+      .selectFrom("postSnippets")
+      .select(["id", "postId", "title", "language", "sourceCode", "filename"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (!snippet) throw notFound("El fragmento no existe");
+    // Un snippet es una vista sobre un post y hereda su visibilidad: sin
+    // esto, con el id a mano se descargaría el código de un post retirado.
+    if (!(await canViewPost(app.db, snippet.postId, req.session?.userId ?? null))) {
+      throw notFound("El fragmento no existe o no tenés acceso");
+    }
+
+    const nombre = nombreDeArchivo(
+      snippet.title as string,
+      snippet.language as string,
+      snippet.filename as string | null,
+    );
+
+    return reply
+      .header("Content-Type", "text/plain; charset=utf-8")
+      // El nombre va entre comillas: puede llevar espacios.
+      .header("Content-Disposition", `attachment; filename="${nombre}"`)
+      .send(snippet.sourceCode);
+  });
+
+  /**
+   * Traer un archivo de un repositorio conectado y guardarlo como fragmento.
+   *
+   * Lee de GitHub en vivo (browse ya resuelve el token y los permisos) y
+   * delega en createSnippet, que guarda el post, el fragmento y el índice de
+   * búsqueda en una sola transacción.
+   */
+  app.post("/snippets/from-repo", { preHandler: requiereCrear }, async (req, reply) => {
+    const session = app.requireAuth(req);
+    const parsed = z
+      .object({
+        owner: z.string().min(1).max(100),
+        repo: z.string().min(1).max(100),
+        path: z.string().min(1).max(400),
+        language: z.string().min(1).max(40).optional(),
+        title: z.string().min(1).max(200).optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+
+    const { owner, repo, path } = parsed.data;
+    const resultado = await browse(app.db, session.userId, owner, repo, path);
+
+    if (resultado.kind !== "file") {
+      throw badRequest("Esa ruta es una carpeta, no un archivo");
+    }
+    const archivo = resultado.file;
+    if (archivo.binary || archivo.tooLarge || archivo.text === null) {
+      throw badRequest(
+        archivo.tooLarge
+          ? "El archivo pasa de 1 MB y GitHub no lo manda por esta vía"
+          : "Ese archivo es binario: no se puede guardar como fragmento",
+      );
+    }
+
+    const nombre = path.split("/").pop() ?? path;
+    const extension = nombre.includes(".") ? (nombre.split(".").pop() as string) : "txt";
+
+    const snippet = await createSnippet(app.db, {
+      authorId: session.userId,
+      title: parsed.data.title ?? nombre,
+      // Sin tabla de equivalencias: la extensión ya es la pista que usa el
+      // resaltador, y una lista propia se queda vieja enseguida.
+      language: parsed.data.language ?? extension,
+      sourceCode: archivo.text,
+      filename: nombre,
+    });
+
+    return reply.code(201).send({ snippet });
+  });
 
   app.get("/snippets", async (req) => {
     const q = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(req.query);

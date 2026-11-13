@@ -373,3 +373,37 @@ export async function borrarArchivo(
   if (!resultado?.commit) throw notFound("GitHub no confirmó el borrado.");
   return { path: input.path, commitSha: resultado.commit.sha, commitUrl: resultado.commit.html_url };
 }
+
+/**
+ * Da de alta un repositorio en app.github_repositories (o devuelve el que ya
+ * estaba) para poder adjuntarlo a un mensaje.
+ *
+ * Esta tabla existía desde el esquema inicial y nadie la escribía nunca: por
+ * eso el selector de colecciones dejaba los repositorios fuera, porque elegir
+ * uno daba siempre "el repositorio no existe".
+ *
+ * DO UPDATE y no DO NOTHING: con DO NOTHING el RETURNING viene vacío cuando
+ * la fila ya existía, y habría que hacer un SELECT extra que además puede
+ * perder la carrera contra otra petición simultánea.
+ */
+export async function upsertRepositoryByUrl(
+  db: Database,
+  input: { canonicalUrl: string; repositoryName: string },
+) {
+  const fila = await db
+    .insertInto("githubRepositories")
+    .values({
+      canonicalUrl: input.canonicalUrl,
+      repositoryName: input.repositoryName,
+    })
+    .onConflict((oc) =>
+      oc.column("canonicalUrl").doUpdateSet({
+        repositoryName: input.repositoryName,
+        updatedAt: new Date(),
+      }),
+    )
+    .returningAll()
+    .executeTakeFirstOrThrow();
+
+  return fila;
+}

@@ -21,6 +21,7 @@
 
 import type { Database } from "@neoaxis/db";
 import { conflict, notFound } from "../../lib/errors.js";
+import { listAttachmentsForPosts } from "./attachments.js";
 import { createPost } from "../posts/service.js";
 import { slugify } from "./slug.js";
 
@@ -141,11 +142,16 @@ export async function listMessages(db: Database, input: ListMessagesInput) {
 
   const rows = await query.execute();
 
+  // Los adjuntos de TODA la página en una consulta. Pedirlos mensaje por
+  // mensaje serían cincuenta viajes más al pooler para pintar una pantalla.
+  const adjuntos = await listAttachmentsForPosts(db, rows.map((r) => r.id as string));
+
   // Se piden en orden descendente (el índice los da así y el cursor funciona
   // sobre eso), pero se leen de viejo a nuevo, como cualquier conversación.
   const items = rows.reverse().map((r) => ({
     ...r,
     commentCount: Number(r.commentCount ?? 0),
+    attachments: adjuntos.get(r.id as string) ?? [],
   }));
 
   return {

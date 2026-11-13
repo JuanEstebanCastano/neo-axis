@@ -11,12 +11,29 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
-import { Surface, Button, Field, Input, Textarea, Skeleton, EmptyState } from "../components/ui";
+import {
+  Surface,
+  Button,
+  Field,
+  Input,
+  Select,
+  Segmented,
+  Textarea,
+  Skeleton,
+  EmptyState,
+} from "../components/ui";
 import { Icon } from "../components/Icon";
-import { api, type Channel, type ChannelMessage, type Comment } from "../lib/api";
+import type { IconName } from "../components/Icon";
+import {
+  api,
+  type Attachment,
+  type Channel,
+  type ChannelMessage,
+  type Comment,
+} from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 
@@ -93,6 +110,243 @@ function NuevaSeccion({ onListo }: { onListo: (c: Channel) => void }) {
         </Button>
         <Button variant="accent" type="submit" loading={crear.isPending}>
           {t("community.create")}
+        </Button>
+      </div>
+    </Surface>
+  );
+}
+
+// ── Adjuntos ──────────────────────────────────────────────────────────
+
+const ICONO_ADJUNTO: Record<Attachment["attachmentType"], IconName> = {
+  book: "book",
+  repository: "repo",
+  snippet: "snippet",
+};
+
+/** Lo que cuelga de un mensaje, con su botón para llevárselo. */
+function Adjuntos({
+  mensaje,
+  puedeQuitar,
+  onCambio,
+}: {
+  mensaje: ChannelMessage;
+  puedeQuitar: boolean;
+  onCambio: () => void;
+}) {
+  const { t } = useI18n();
+
+  const quitar = useMutation({
+    mutationFn: (id: string) => api.removeAttachment(id),
+    onSuccess: onCambio,
+  });
+
+  if (mensaje.attachments.length === 0) return null;
+
+  return (
+    <ul className="adj__lista">
+      {mensaje.attachments.map((a) => (
+        <li key={a.id} className="adj">
+          <Icon name={ICONO_ADJUNTO[a.attachmentType]} size={16} />
+          <div className="adj__texto">
+            <span className="adj__titulo">{a.title}</span>
+            {a.note && <span className="adj__nota">{a.note}</span>}
+          </div>
+          <div className="adj__acciones">
+            {a.attachmentType === "snippet" && (
+              // Navegación real del navegador: la descarga no es un fetch.
+              <a className="adj__accion" href={api.snippetRawUrl(a.targetId)}>
+                <Icon name="download" size={14} />
+                {t("attach.download")}
+              </a>
+            )}
+            {a.attachmentType === "book" && (a.downloadUrl || a.readUrl) && (
+              <a
+                className="adj__accion"
+                href={(a.downloadUrl ?? a.readUrl) as string}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                <Icon name={a.downloadUrl ? "download" : "external"} size={14} />
+                {a.downloadUrl ? t("attach.download") : t("attach.read")}
+              </a>
+            )}
+            {a.attachmentType === "repository" && a.canonicalUrl && (
+              <a
+                className="adj__accion"
+                href={a.canonicalUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                <Icon name="external" size={14} />
+                {t("attach.open")}
+              </a>
+            )}
+            {puedeQuitar && (
+              <button
+                type="button"
+                className="adj__accion adj__accion--riesgo"
+                onClick={() => quitar.mutate(a.id)}
+                disabled={quitar.isPending}
+              >
+                {t("attach.remove")}
+              </button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type TipoAdjunto = "book" | "snippet" | "repository";
+
+/**
+ * Elegir qué colgar del mensaje.
+ *
+ * Calcado del AddItem de CollectionDetail: un Segmented para el tipo y una
+ * consulta por tipo, con `enabled` para no pedir lo que no se está mirando.
+ *
+ * El libro por enlace no está acá a propósito: darlo de alta pide título y
+ * nota de derechos, y ese formulario ya existe en Biblioteca. Así el libro
+ * entra al catálogo y queda disponible para todos, en vez de ser una URL
+ * suelta dentro de un mensaje.
+ */
+function AdjuntarItem({ mensaje, onListo }: { mensaje: ChannelMessage; onListo: () => void }) {
+  const { t } = useI18n();
+  const [abierto, setAbierto] = useState(false);
+  const [tipo, setTipo] = useState<TipoAdjunto>("book");
+  const [itemId, setItemId] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [note, setNote] = useState("");
+
+  const libros = useQuery({
+    queryKey: ["books"],
+    queryFn: () => api.books(),
+    enabled: abierto && tipo === "book",
+  });
+  const fragmentos = useQuery({
+    queryKey: ["snippets"],
+    queryFn: () => api.snippets(),
+    enabled: abierto && tipo === "snippet",
+  });
+
+  const adjuntar = useMutation({
+    mutationFn: () =>
+      tipo === "repository"
+        ? api.attachToMessage(mensaje.id, {
+            attachmentType: "repository",
+            repoUrl,
+            ...(note ? { note } : {}),
+          })
+        : api.attachToMessage(mensaje.id, {
+            attachmentType: tipo,
+            targetId: itemId,
+            ...(note ? { note } : {}),
+          }),
+    onSuccess: () => {
+      setItemId("");
+      setRepoUrl("");
+      setNote("");
+      setAbierto(false);
+      onListo();
+    },
+  });
+
+  if (!abierto) {
+    return (
+      <button type="button" className="msg__accion" onClick={() => setAbierto(true)}>
+        <Icon name="plus" size={14} />
+        {t("attach.add")}
+      </button>
+    );
+  }
+
+  const opciones =
+    tipo === "book"
+      ? (libros.data?.items ?? []).map((b) => ({ id: b.id, label: b.title }))
+      : (fragmentos.data?.items ?? []).map((s) => ({ id: s.id, label: `${s.title} · ${s.language}` }));
+
+  const vacio = tipo !== "repository" && !opciones.length &&
+    !(tipo === "book" ? libros.isLoading : fragmentos.isLoading);
+
+  return (
+    <Surface
+      as="form"
+      className="adj__form"
+      onSubmit={(e: React.FormEvent) => {
+        e.preventDefault();
+        adjuntar.mutate();
+      }}
+    >
+      <Segmented
+        label={t("attach.what")}
+        value={tipo}
+        options={[
+          { value: "book", label: t("attach.book") },
+          { value: "snippet", label: t("attach.snippet") },
+          { value: "repository", label: t("attach.repo") },
+        ]}
+        onChange={(next) => {
+          setTipo(next as TipoAdjunto);
+          // El id elegido pertenecía a la lista anterior.
+          setItemId("");
+        }}
+      />
+
+      {tipo === "repository" ? (
+        <Field label={t("attach.repoUrl")} hint={t("attach.repoUrlHint")}>
+          <Input
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+            placeholder="usuario/repositorio"
+            required
+          />
+        </Field>
+      ) : vacio ? (
+        <p className="hilo__vacio">
+          {tipo === "book" ? t("attach.noBooks") : t("attach.noSnippets")}
+          {tipo === "book" && (
+            <>
+              {" "}
+              <Link to="/biblioteca">{t("attach.goToLibrary")}</Link>
+            </>
+          )}
+        </p>
+      ) : (
+        <Field label={tipo === "book" ? t("attach.book") : t("attach.snippet")}>
+          <Select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
+            <option value="">{t("attach.choose")}</option>
+            {opciones.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      <Field label={t("attach.note")} hint={t("attach.noteHint")}>
+        <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+      </Field>
+
+      {adjuntar.isError && (
+        <p className="field__error" role="alert">
+          {(adjuntar.error as Error).message}
+        </p>
+      )}
+
+      <div className="row row--end">
+        <Button variant="ghost" type="button" onClick={() => setAbierto(false)}>
+          {t("attach.cancel")}
+        </Button>
+        <Button
+          variant="accent"
+          type="submit"
+          loading={adjuntar.isPending}
+          disabled={tipo === "repository" ? !repoUrl.trim() : !itemId}
+        >
+          {t("attach.save")}
         </Button>
       </div>
     </Surface>
@@ -294,12 +548,28 @@ function Mensajes({ canal }: { canal: Channel }) {
                     <span className="msg__tiempo">{timeAgo(m.createdAt)}</span>
                   </div>
                   <p className="msg__texto">{m.bodyMarkdown}</p>
-                  <button type="button" className="msg__accion" onClick={() => setAbierto(m)}>
-                    <Icon name="chat" size={14} />
-                    {m.commentCount > 0
-                      ? tn(m.commentCount, "community.repliesOne", "community.repliesMany")
-                      : t("community.noReplies")}
-                  </button>
+
+                  <Adjuntos
+                    mensaje={m}
+                    puedeQuitar={m.authorId === user?.id}
+                    onCambio={() => qc.invalidateQueries({ queryKey: ["messages", canal.id] })}
+                  />
+
+                  <div className="msg__pie">
+                    <button type="button" className="msg__accion" onClick={() => setAbierto(m)}>
+                      <Icon name="chat" size={14} />
+                      {m.commentCount > 0
+                        ? tn(m.commentCount, "community.repliesOne", "community.repliesMany")
+                        : t("community.noReplies")}
+                    </button>
+                    {/* Sólo el autor le cuelga cosas a su propio mensaje. */}
+                    {m.authorId === user?.id && (
+                      <AdjuntarItem
+                        mensaje={m}
+                        onListo={() => qc.invalidateQueries({ queryKey: ["messages", canal.id] })}
+                      />
+                    )}
+                  </div>
                 </div>
               </li>
             ))}

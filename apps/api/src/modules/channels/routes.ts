@@ -19,7 +19,10 @@ import { z } from "zod";
 import { badRequest } from "../../lib/errors.js";
 import { prettifyZodError } from "../../lib/validation.js";
 import { PERMISSIONS } from "../../lib/rbac.js";
-import { createChannelBody, createMessageBody, messagesQuery } from "./schemas.js";
+import { canonicalizarRepo } from "../repos/canonical.js";
+import { upsertRepositoryByUrl } from "../repos/service.js";
+import { addAttachment, removeAttachment } from "./attachments.js";
+import { attachmentBody, createChannelBody, createMessageBody, messagesQuery } from "./schemas.js";
 import {
   createChannel,
   createMessage,
@@ -83,4 +86,42 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(201).send({ message });
     },
   );
+
+  // Colgarle algo a un mensaje: un libro, un fragmento de código o un repo.
+  app.post("/messages/:id/attachments", async (req, reply) => {
+    const session = app.requireAuth(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const parsed = attachmentBody.safeParse(req.body);
+    if (!parsed.success) throw badRequest(prettifyZodError(parsed.error));
+
+    let targetId = parsed.data.targetId;
+
+    if (parsed.data.attachmentType === "repository") {
+      const ref = canonicalizarRepo(parsed.data.repoUrl as string);
+      if (!ref) {
+        throw badRequest("Eso no parece un repositorio de GitHub (probá con owner/repo)");
+      }
+      // El primero que lo adjunta lo da de alta; el resto reusa la fila.
+      const repo = await upsertRepositoryByUrl(app.db, {
+        canonicalUrl: ref.canonicalUrl,
+        repositoryName: `${ref.owner}/${ref.repo}`,
+      });
+      targetId = repo.id as string;
+    }
+
+    const attachment = await addAttachment(app.db, {
+      postId: id,
+      attachmentType: parsed.data.attachmentType,
+      targetId: targetId as string,
+      note: parsed.data.note ?? null,
+      actorId: session.userId,
+    });
+    return reply.code(201).send({ attachment });
+  });
+
+  app.delete("/attachments/:id", async (req) => {
+    const session = app.requireAuth(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    return removeAttachment(app.db, id, session.userId);
+  });
 };
