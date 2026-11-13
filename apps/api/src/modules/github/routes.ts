@@ -25,18 +25,48 @@ import * as gh from "./client.js";
 import { GITHUB_SCOPES, disconnect, getConnectionView, saveConnection } from "./service.js";
 
 const STATE_COOKIE = "neoaxis_gh_state";
+const FROM_COOKIE = "neoaxis_gh_from";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutos para completar el flujo.
+const DESTINO_POR_DEFECTO = "/snippets";
 
 /** Primer origen de PUBLIC_WEB_ORIGIN: es a donde vuelve el usuario. */
 function webOrigin(): string {
   return (config.PUBLIC_WEB_ORIGIN.split(",")[0] ?? "").trim().replace(/\/+$/, "");
 }
 
+/**
+ * Sólo rutas internas. Sin esto, un `?desde=https://otro-sitio` convertiría el
+ * callback en un redirector abierto con nuestro dominio de fachada.
+ */
+const RESTO_DE_RUTA = /^[A-Za-z0-9_/-]*$/;
+
+function rutaInterna(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+  // "//otro-sitio.com" es una URL con host, no una ruta: la descartamos antes.
+  if (!valor.startsWith("/") || valor.startsWith("//")) return null;
+  return RESTO_DE_RUTA.test(valor.slice(1)) ? valor : null;
+}
+
+/** Las mismas opciones al poner y al borrar, o la cookie no se borra. */
+function opcionesCookie() {
+  return {
+    httpOnly: true,
+    secure: isProduction || config.COOKIE_SAMESITE === "none",
+    sameSite: config.COOKIE_SAMESITE,
+    path: "/",
+  } as const;
+}
+
 /** Vuelve al frontend con el resultado en la query. */
-function volverAlFrontend(reply: FastifyReply, resultado: string, detalle?: string) {
+function volverAlFrontend(
+  reply: FastifyReply,
+  resultado: string,
+  detalle?: string,
+  destino: string = DESTINO_POR_DEFECTO,
+) {
   const qs = new URLSearchParams({ github: resultado });
   if (detalle) qs.set("motivo", detalle);
-  return reply.redirect(`${webOrigin()}/snippets?${qs.toString()}`, 302);
+  return reply.redirect(`${webOrigin()}${destino}?${qs.toString()}`, 302);
 }
 
 export const githubRoutes: FastifyPluginAsync = async (app) => {
@@ -66,6 +96,18 @@ export const githubRoutes: FastifyPluginAsync = async (app) => {
       signed: true,
     });
 
+    // De dónde salió el usuario, para devolverlo ahí y no siempre a /snippets.
+    const desde = rutaInterna((req.query as { desde?: unknown }).desde);
+    if (desde) {
+      reply.setCookie(FROM_COOKIE, desde, {
+        ...opcionesCookie(),
+        maxAge: STATE_TTL_MS / 1000,
+        signed: true,
+      });
+    } else {
+      reply.clearCookie(FROM_COOKIE, opcionesCookie());
+    }
+
     return reply.redirect(
       gh.buildAuthorizeUrl({
         clientId: config.GITHUB_CLIENT_ID as string,
@@ -79,7 +121,15 @@ export const githubRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Paso 2: GitHub devuelve al usuario acá ──
   app.get("/github/callback", async (req, reply) => {
-    if (!isGithubEnabled) return volverAlFrontend(reply, "error", "no-configurado");
+    // El origen viaja en su propia cookie firmada y se consume siempre, salga
+    // el flujo bien o mal: así todos los retornos de abajo caen en la página
+    // desde la que el usuario apretó "Conectar".
+    const firmadaOrigen = req.cookies[FROM_COOKIE];
+    const origen = firmadaOrigen ? app.unsignCookie(firmadaOrigen) : null;
+    const destino = (origen?.valid ? rutaInterna(origen.value) : null) ?? DESTINO_POR_DEFECTO;
+    reply.clearCookie(FROM_COOKIE, opcionesCookie());
+
+    if (!isGithubEnabled) return volverAlFrontend(reply, "error", "no-configurado", destino);
 
     const query = z
       .object({
@@ -90,7 +140,7 @@ export const githubRoutes: FastifyPluginAsync = async (app) => {
       .safeParse(req.query);
 
     // El usuario apretó "Cancel" en la pantalla de GitHub.
-    if (!query.success || query.data.error) return volverAlFrontend(reply, "cancelado");
+    if (!query.success || query.data.error) return volverAlFrontend(reply, "cancelado", undefined, destino);
 
     const { code, state } = query.data;
     const firmada = req.cookies[STATE_COOKIE];
@@ -105,7 +155,7 @@ export const githubRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (!code || !state || !esperado?.valid || esperado.value !== state) {
-      return volverAlFrontend(reply, "error", "state-invalido");
+      return volverAlFrontend(reply, "error", "state-invalido", destino);
     }
     if (!req.session) return reply.redirect(`${webOrigin()}/auth`, 302);
 
@@ -118,13 +168,13 @@ export const githubRoutes: FastifyPluginAsync = async (app) => {
       });
       const usuario = await gh.getAuthenticatedUser(token.access_token);
       await saveConnection(app.db, { userId: req.session.userId, user: usuario, token });
-      return volverAlFrontend(reply, "conectado");
+      return volverAlFrontend(reply, "conectado", undefined, destino);
     } catch (err) {
       // Un fallo acá no puede terminar en un 500 sin contexto: el usuario está
       // mirando una pestaña en blanco esperando volver.
       req.log.error({ err }, "Falló la conexión con GitHub");
       const code = (err as { code?: string }).code;
-      return volverAlFrontend(reply, "error", code === "conflict" ? "cuenta-en-uso" : "fallo");
+      return volverAlFrontend(reply, "error", code === "conflict" ? "cuenta-en-uso" : "fallo", destino);
     }
   });
 

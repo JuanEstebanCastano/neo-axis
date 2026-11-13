@@ -25,7 +25,14 @@ import {
   Badge,
 } from "../components/ui";
 import { Icon } from "../components/Icon";
-import { api, apiUrl, ApiError, type Repo, type RepoEntry } from "../lib/api";
+import {
+  api,
+  apiUrl,
+  ApiError,
+  type GithubConnection,
+  type Repo,
+  type RepoEntry,
+} from "../lib/api";
 import { useI18n } from "../context/I18nContext";
 
 /** 1,2 MB -> "1.2 MB". Para que el tamaño diga algo a simple vista. */
@@ -69,13 +76,63 @@ function PedirConexion({ motivo }: { motivo: "sin-conexion" | "sin-permiso" }) {
             variant="accent"
             icon="external"
             onClick={() => {
-              window.location.href = apiUrl("/github/connect");
+              // ?desde: el callback devuelve acá y no a /snippets.
+              window.location.href = apiUrl("/github/connect?desde=/repos");
             }}
           >
             {t(sinConexion ? "repos.connect" : "repos.reconnect")}
           </Button>
         }
       />
+    </Surface>
+  );
+}
+
+// ── Cuenta conectada ──────────────────────────────────────────
+
+/**
+ * Desde acá se suelta la cuenta. Antes esta página solo sabía conectar: una vez
+ * conectado no quedaba forma de salir ni de cambiar de cuenta sin irse a la
+ * página de snippets, que era la única que mostraba el botón.
+ */
+function PanelConexion({ conexion }: { conexion: GithubConnection }) {
+  const qc = useQueryClient();
+  const { t, dateTime } = useI18n();
+
+  const desconectar = useMutation({
+    mutationFn: () => api.githubDisconnect(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["github", "status"] });
+      // Los repos en caché son de la cuenta que acaba de salir: si se quedan,
+      // la siguiente cuenta ve por un instante los del anterior.
+      qc.removeQueries({ queryKey: ["repos"] });
+    },
+  });
+
+  return (
+    <Surface className="post">
+      <div className="row spread">
+        <div className="row row--sm">
+          <Icon name="repo" size={20} />
+          <div>
+            <strong>{t("github.connected")}</strong>
+            <div className="post__meta">
+              <span className="mono">@{conexion.login}</span>
+              <span className="post__seg">
+                <span className="post__dot" aria-hidden />
+                <span>{t("github.since", { date: dateTime(conexion.connectedAt) })}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          loading={desconectar.isPending}
+          onClick={() => desconectar.mutate()}
+        >
+          {t("github.disconnect")}
+        </Button>
+      </div>
     </Surface>
   );
 }
@@ -744,6 +801,8 @@ export function Repos() {
   return (
     <Shell title={title} subtitle={subtitle}>
       <div className="stack stack--md">
+        <PanelConexion conexion={estado.data.connection} />
+
         {lista.isLoading ? (
           <Skeleton h={90} r={14} />
         ) : lista.isError ? (
