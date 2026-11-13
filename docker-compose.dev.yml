@@ -6,16 +6,19 @@
 #   docker compose -f docker-compose.dev.yml up        # levanta la infra local
 #   pnpm --filter @neoaxis/api dev                      # api/worker desde el host
 #
-# Requiere un .env con los valores locales (postgres:5432, minio:9000, etc.).
+# AUTOCONTENIDO A PROPÓSITO: este archivo NO lee DATABASE_URL ni S3_* del .env.
+# Ese .env apunta a Supabase y a su bucket de producción, así que heredarlo haría
+# que `migrate` corriera dbmate CONTRA LA BASE DE PRODUCCIÓN. Las credenciales de
+# abajo son locales y desechables; se pueden sobreescribir con las DEV_*.
 services:
   postgres:
     # 18 es obligatorio: uuidv7() nativo. No bajar de versión.
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${DEV_POSTGRES_USER:-neoaxis}
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-neoaxis}
+      POSTGRES_DB: ${DEV_POSTGRES_DB:-neoaxis}
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -30,7 +33,8 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Apunta SIEMPRE al postgres de este compose. Nunca al DATABASE_URL del .env.
+      DATABASE_URL: postgres://${DEV_POSTGRES_USER:-neoaxis}:${DEV_POSTGRES_PASSWORD:-neoaxis}@postgres:5432/${DEV_POSTGRES_DB:-neoaxis}?sslmode=disable
     volumes:
       - ./db/migrations:/db/migrations
     command: ["--wait", "up"]
@@ -40,8 +44,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+      MINIO_ROOT_USER: ${DEV_S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${DEV_S3_SECRET_KEY:-minioadmin}
     ports: ["9000:9000", "9001:9001"]
     volumes:
       - miniodata:/data
@@ -56,8 +60,8 @@ services:
       minio: { condition: service_healthy }
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
-      mc mb --ignore-existing local/${S3_BUCKET} &&
+      mc alias set local http://minio:9000 ${DEV_S3_ACCESS_KEY:-minioadmin} ${DEV_S3_SECRET_KEY:-minioadmin} &&
+      mc mb --ignore-existing local/${DEV_S3_BUCKET:-neoaxis} &&
       echo 'bucket listo'"
 
   mailpit:

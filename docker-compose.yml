@@ -6,6 +6,11 @@ services:
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     env_file: [.env]
+    # `environment` gana sobre `env_file`: fuerza producción aunque el .env de la
+    # máquina traiga NODE_ENV=development (en dev el logger pide pino-pretty, que
+    # es devDependency y NO está en la imagen de producción: el proceso moriría).
+    environment:
+      NODE_ENV: production
     # Sin `ports`: la API NO se publica al host. Caddy la alcanza por la red
     # de compose (api:3000). Evita exponer el backend salteándose el proxy/TLS.
     expose: ["3000"]
@@ -18,16 +23,25 @@ services:
     build: { context: ., dockerfile: apps/worker/Dockerfile }
     restart: unless-stopped
     env_file: [.env]
+    # Mismo motivo que en api.
+    environment:
+      NODE_ENV: production
     # Escalable: docker compose up --scale worker=3 (SKIP LOCKED lo soporta)
     deploy:
       replicas: 1
 
-  # Reverse-proxy con TLS automático. Expone la API en API_DOMAIN_PLACEHOLDER.
-  # El CORS lo pone SOLO Fastify; Caddy no agrega cabeceras CORS.
+  # Reverse-proxy con TLS automático. Expone la API en el dominio de API_DOMAIN.
+  # Definí API_DOMAIN en el .env del VPS (p. ej. api.midominio.com); Caddy lo lee
+  # del entorno con {$API_DOMAIN}. El CORS lo pone SOLO Fastify; Caddy no agrega
+  # cabeceras CORS.
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on: [api]
+    environment:
+      # Si falta, Caddy sirve en localhost con su CA interna (útil para probar el
+      # compose en local). En el VPS hay que definirlo o la API no será accesible.
+      API_DOMAIN: ${API_DOMAIN:-localhost}
     ports: ["80:80", "443:443"]
     volumes:
       - ./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro

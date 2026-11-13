@@ -25,7 +25,10 @@ ENV NODE_ENV=production
 # Nunca correr como root en el VPS.
 USER node
 COPY --from=build --chown=node:node /output /app
-# CA raíz de Supabase para el TLS verify-full del DATABASE_URL. Se usa con ruta
-# ABSOLUTA en el contenedor: sslrootcert=/app/certs/supabase-ca.crt
+# CA raíz de Supabase para el TLS verify-full del DATABASE_URL. Se copia DOS veces a
+# propósito: la ruta absoluta (/app/certs/supabase-ca.crt) y la MISMA ruta relativa
+# que se usa desde el host (ops/certs/...). Como el WORKDIR es /app, un
+# sslrootcert relativo del .env resuelve igual dentro y fuera del contenedor.
 COPY --chown=node:node ops/certs/supabase-root-2021-ca.crt /app/certs/supabase-ca.crt
+COPY --chown=node:node ops/certs/supabase-root-2021-ca.crt /app/ops/certs/supabase-root-2021-ca.crt
 CMD ["node", "dist/index.js"]

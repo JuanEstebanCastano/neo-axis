@@ -2,11 +2,14 @@
 # Caddy, al declarar un dominio, obtiene el certificado solo y redirige
 # HTTP -> HTTPS automáticamente.
 #
+# El dominio NO se escribe aquí: viene de la variable de entorno API_DOMAIN,
+# que docker-compose.yml le pasa al contenedor desde el .env del VPS.
+#
 # IMPORTANTE: Caddy NO agrega cabeceras CORS. El CORS lo pone SOLO Fastify
 # (apps/api/src/server.ts). No añadir aquí ninguna directiva `header` de CORS
 # para no duplicarlas. reverse_proxy reenvía Origin y setea X-Forwarded-*
 # (que Fastify usa con trustProxy).
 
-API_DOMAIN_PLACEHOLDER {
+{$API_DOMAIN} {
 	reverse_proxy api:3000
 }
