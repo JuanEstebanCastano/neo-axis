@@ -77,7 +77,7 @@ function PedirConexion({ motivo }: { motivo: "sin-conexion" | "sin-permiso" }) {
             icon="external"
             onClick={() => {
               // ?desde: el callback devuelve acá y no a /snippets.
-              window.location.href = apiUrl("/github/connect?desde=/repos");
+              window.location.href = apiUrl("/github/connect?desde=/repositorios");
             }}
           >
             {t(sinConexion ? "repos.connect" : "repos.reconnect")}
