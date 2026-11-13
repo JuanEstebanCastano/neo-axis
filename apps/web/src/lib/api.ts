@@ -44,6 +44,20 @@ export interface Post {
   id: string; title: string | null; slug: string | null; excerpt: string | null;
   createdAt: string; authorUsername: string; authorDisplayName: string; authorAvatarUrl: string | null;
 }
+export interface Channel {
+  id: string; slug: string; name: string; description: string | null;
+  topic: string | null; sortOrder: number; archivedAt: string | null; createdAt: string;
+}
+export interface ChannelMessage {
+  id: string; bodyMarkdown: string | null; createdAt: string; authorId: string;
+  authorUsername: string; authorDisplayName: string; authorAvatarUrl: string | null;
+  commentCount: number;
+}
+export interface Comment {
+  id: string; parentCommentId: string | null; bodyMarkdown: string; createdAt: string;
+  authorId: string; authorUsername: string; authorDisplayName: string;
+  authorAvatarUrl: string | null; replies: Comment[];
+}
 export interface Collection {
   id: string; ownerId: string; title: string; slug: string | null;
   description: string | null; visibility: "community" | "restricted"; createdAt: string;
@@ -180,6 +194,38 @@ export const api = {
     req<{ post: { id: string; title: string | null; excerpt: string | null; bodyMarkdown: string | null } }>(`/posts/${id}`),
   createPost: (b: { title?: string; bodyMarkdown?: string }) =>
     req<{ post: Post }>("/posts", { method: "POST", body: JSON.stringify(b) }),
+
+  // ── Secciones de la comunidad ──
+  channels: () => req<{ items: Channel[] }>("/channels"),
+  channel: (slug: string) => req<{ channel: Channel }>(`/channels/${slug}`),
+  // before: hacia atrás (scroll). after: lo nuevo (refresco automático).
+  channelMessages: (id: string, o: { before?: string; after?: string; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (o.before) qs.set("before", o.before);
+    if (o.after) qs.set("after", o.after);
+    if (o.limit) qs.set("limit", String(o.limit));
+    const q = qs.toString();
+    return req<{ items: ChannelMessage[]; nextBefore: string | null }>(
+      `/channels/${id}/messages${q ? `?${q}` : ""}`,
+    );
+  },
+  createChannel: (b: { name: string; description?: string; topic?: string }) =>
+    req<{ channel: Channel }>("/channels", { method: "POST", body: JSON.stringify(b) }),
+  sendMessage: (channelId: string, b: { bodyMarkdown: string }) =>
+    req<{ message: ChannelMessage }>(`/channels/${channelId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+
+  // ── Comentarios (el hilo de una publicación o de un mensaje) ──
+  comments: (postId: string) =>
+    req<{ items: Comment[]; total: number }>(`/posts/${postId}/comments`),
+  createComment: (postId: string, b: { bodyMarkdown: string; parentCommentId?: string }) =>
+    req<{ comment: Comment }>(`/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  deleteComment: (id: string) => req<{ ok: boolean }>(`/comments/${id}`, { method: "DELETE" }),
 
   collections: (owner?: string) =>
     req<{ items: Collection[] }>(`/collections${owner ? `?owner=${owner}` : ""}`),

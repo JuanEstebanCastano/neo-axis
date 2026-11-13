@@ -762,3 +762,251 @@
   gap: var(--sp-3);
   flex-wrap: wrap;
 }
+
+/* ── Comunidad (secciones y mensajes) ──────────────────────────────── */
+
+/* Dos columnas en escritorio; en móvil la lista de secciones se apila
+   arriba, que es donde se espera encontrarla al llegar. */
+.comunidad {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .comunidad {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.comunidad__secciones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.comunidad__titulo {
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 0 0 var(--sp-1) var(--sp-2);
+}
+
+.comunidad__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.comunidad__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: start;
+  cursor: pointer;
+}
+
+.comunidad__item:hover {
+  color: var(--text);
+  box-shadow: var(--nm-flat);
+}
+
+.comunidad__item.is-active {
+  color: var(--accent-on-soft);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.comunidad__centro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.comunidad__cab {
+  padding: var(--sp-4);
+}
+
+/* Altura acotada y scroll propio: la conversación se mueve dentro de su
+   caja en vez de estirar la página hasta el infinito. */
+.comunidad__mensajes {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-inline-end: var(--sp-2);
+}
+
+.comunidad__aviso {
+  padding: var(--sp-4);
+  color: var(--text-3);
+  font-size: var(--fs-md);
+}
+
+.comunidad__compositor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.msg__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.msg {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+
+.msg__avatar {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-on-soft);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  box-shadow: var(--nm-flat);
+}
+
+.msg__cuerpo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.msg__cab {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.msg__autor {
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+
+.msg__tiempo,
+.hilo__tiempo {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.msg__texto,
+.hilo__cuerpo {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+}
+
+.msg__accion,
+.hilo__accion {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.msg__accion:hover,
+.hilo__accion:hover {
+  color: var(--accent-on-soft);
+  text-decoration: underline;
+}
+
+.hilo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.hilo__origen {
+  margin: 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--nm-inset-sm);
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hilo__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.hilo__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.hilo__cab {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.hilo__autor {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.hilo__vacio {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-md);
+}
+
+.hilo__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.hilo__respondiendo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}

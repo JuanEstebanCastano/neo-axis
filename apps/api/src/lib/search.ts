@@ -94,6 +94,12 @@ export async function search(
            ) AS rank
     FROM app.search_documents sd
     LEFT JOIN app.posts p ON p.id = sd.entity_id AND sd.entity_type = 'post'
+    -- Un comentario hereda la visibilidad de su publicación: hay que mirar
+    -- las dos. Sin esto, borrar un comentario lo saca del hilo pero lo deja
+    -- saliendo en las búsquedas, y moderar la publicación no silencia su
+    -- debate.
+    LEFT JOIN app.comments c ON c.id = sd.entity_id AND sd.entity_type = 'comment'
+    LEFT JOIN app.posts cp ON cp.id = c.post_id
     WHERE (
       sd.search_vector @@ websearch_to_tsquery('spanish', ${query})
       OR coalesce(sd.title, '') % ${query}
@@ -102,6 +108,14 @@ export async function search(
     AND (
       sd.entity_type <> 'post'
       OR (p.deleted_at IS NULL AND p.status = 'published' AND p.hidden_at IS NULL AND p.visibility = 'community')
+    )
+    AND (
+      sd.entity_type <> 'comment'
+      OR (
+        c.deleted_at IS NULL AND c.hidden_at IS NULL
+        AND cp.deleted_at IS NULL AND cp.status = 'published'
+        AND cp.hidden_at IS NULL AND cp.visibility = 'community'
+      )
     )
     ${opts.entityType ? sql`AND sd.entity_type = ${opts.entityType}` : sql``}
     ORDER BY rank DESC

@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   postsEditOwn: "posts.edit_own",
   postsDeleteOwn: "posts.delete_own",
   commentsCreate: "comments.create",
+  channelsCreate: "channels.create",
+  channelsManage: "channels.manage",
   eventsCreate: "events.create",
   eventsManageOwn: "events.manage_own",
   moderationReadReports: "moderation.read_reports",

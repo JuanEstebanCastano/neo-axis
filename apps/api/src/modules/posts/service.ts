@@ -23,6 +23,8 @@ export interface CreatePostInput {
   excerpt?: string | null | undefined;
   bodyMarkdown?: string | null | undefined;
   visibility?: "community" | "restricted" | undefined;
+  /** Sección donde vive. null = no vive en ninguna (los snippets). */
+  channelId?: string | null | undefined;
   tagIds?: string[] | undefined;
   mentionedUserIds?: string[] | undefined;
 }
@@ -43,6 +45,7 @@ export async function createPost(db: Database, input: CreatePostInput) {
         excerpt: input.excerpt ?? null,
         bodyMarkdown: input.bodyMarkdown ?? null,
         visibility: input.visibility ?? "community",
+        channelId: input.channelId ?? null,
         publishedAt: new Date(),
       })
       .returningAll()

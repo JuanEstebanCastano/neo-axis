@@ -10,7 +10,7 @@
     "db:up": "dbmate --migrations-dir ./db/migrations --no-dump-schema up",
     "db:down": "dbmate --migrations-dir ./db/migrations down",
     "db:new": "dbmate --migrations-dir ./db/migrations new",
-    "db:types": "kysely-codegen --dialect postgres --camel-case --default-schema app --out-file packages/db/src/schema.d.ts",
+    "db:types": "kysely-codegen --dialect postgres --camel-case --default-schema app --include-pattern \"app.*\" --out-file packages/db/src/schema.d.ts",
     "typecheck": "tsc -b --pretty && tsc -p apps/web --noEmit --pretty",
     "lint": "eslint .",
     "test": "node --test \"apps/**/dist/**/*.test.js\""

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Auth } from "./pages/Auth";
 import { Feed } from "./pages/Feed";
+import { Comunidad } from "./pages/Comunidad";
 import { Collections } from "./pages/Collections";
 import { CollectionDetail } from "./pages/CollectionDetail";
 import { Library } from "./pages/Library";
@@ -22,6 +23,8 @@ export function App() {
         <Route path="/recuperar" element={<ForgotPassword />} />
         <Route path="/restablecer" element={<ResetPassword />} />
         <Route path="/" element={<Feed />} />
+        <Route path="/comunidad" element={<Comunidad />} />
+        <Route path="/comunidad/:slug" element={<Comunidad />} />
         <Route path="/colecciones" element={<Collections />} />
         <Route path="/colecciones/:id" element={<CollectionDetail />} />
         <Route path="/biblioteca" element={<Library />} />

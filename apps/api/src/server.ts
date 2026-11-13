@@ -24,6 +24,8 @@ import authPlugin from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
 import { postRoutes } from "./modules/posts/routes.js";
+import { channelRoutes } from "./modules/channels/routes.js";
+import { commentRoutes } from "./modules/comments/routes.js";
 import { collectionRoutes } from "./modules/collections/routes.js";
 import { bookRoutes } from "./modules/books/routes.js";
 import { recommendationRoutes } from "./modules/recommendations/routes.js";
@@ -114,6 +116,8 @@ await app.register(async (api) => {
   await api.register(authRoutes);
   await api.register(userRoutes);
   await api.register(postRoutes);
+  await api.register(channelRoutes);
+  await api.register(commentRoutes);
   await api.register(collectionRoutes);
   await api.register(bookRoutes);
   await api.register(recommendationRoutes);

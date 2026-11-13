@@ -9,6 +9,7 @@ import type { TranslationKey } from "../i18n";
 
 const NAV: { to: string; icon: IconName; label: TranslationKey }[] = [
   { to: "/", icon: "feed", label: "nav.feed" },
+  { to: "/comunidad", icon: "hash", label: "nav.community" },
   { to: "/colecciones", icon: "collections", label: "nav.collections" },
   { to: "/biblioteca", icon: "library", label: "nav.library" },
   { to: "/snippets", icon: "snippet", label: "nav.snippets" },
