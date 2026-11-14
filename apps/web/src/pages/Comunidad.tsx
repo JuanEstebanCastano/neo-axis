@@ -34,6 +34,7 @@ import {
   type ChannelMessage,
   type Comment,
 } from "../lib/api";
+import { useCanalEnVivo } from "../lib/useCanalEnVivo";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 
@@ -490,9 +491,15 @@ function Mensajes({ canal }: { canal: Channel }) {
   const mensajes = useQuery({
     queryKey: ["messages", canal.id],
     queryFn: () => api.channelMessages(canal.id, { limit: 50 }),
-    // Esto es lo que hace que los mensajes "aparezcan solos".
+    // El servidor empuja los mensajes nuevos (useCanalEnVivo). Esto es la
+    // red de seguridad: si el empuje fallara en silencio, que es el caso
+    // malo de verdad, los mensajes seguirían llegando con unos segundos de
+    // retraso en vez de no llegar nunca.
     refetchInterval: REFRESCO_MS,
   });
+
+  // Los mensajes nuevos, en cuanto se escriben.
+  useCanalEnVivo(canal.id);
 
   const enviar = useMutation({
     mutationFn: () => api.sendMessage(canal.id, { bodyMarkdown: texto }),
@@ -517,12 +524,19 @@ function Mensajes({ canal }: { canal: Channel }) {
   return (
     <div className="comunidad__centro">
       <Surface className="comunidad__cab">
-        <div className="row row--sm">
-          <Icon name="hash" size={18} />
-          <div>
-            <strong>{canal.name}</strong>
-            {canal.topic && <div className="post__meta">{canal.topic}</div>}
+        <div className="row spread">
+          <div className="row row--sm">
+            <Icon name="hash" size={18} />
+            <div>
+              <strong>{canal.name}</strong>
+              {canal.topic && <div className="post__meta">{canal.topic}</div>}
+            </div>
           </div>
+          {/* Navegación real: la descarga no es un fetch. */}
+          <a className="adj__accion" href={api.channelExportUrl(canal.slug, "md")}>
+            <Icon name="download" size={14} />
+            {t("community.export")}
+          </a>
         </div>
       </Surface>
 

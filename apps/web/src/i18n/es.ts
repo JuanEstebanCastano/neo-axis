@@ -482,6 +482,7 @@ export const es = {
   "attach.open": "Abrir en GitHub",
   "attach.remove": "Quitar",
   "attach.goToLibrary": "Ir a Biblioteca",
+  "community.export": "Descargar el debate",
 } as const;
 
 export type TranslationKey = keyof typeof es;

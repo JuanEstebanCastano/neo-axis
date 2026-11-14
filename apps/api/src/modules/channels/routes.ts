@@ -29,7 +29,14 @@ import {
   getChannelBySlug,
   listChannels,
   listMessages,
+  recorrerMensajes,
 } from "./service.js";
+import {
+  cabeceraMarkdown,
+  mensajeAMarkdown,
+  nombreDeExportacion,
+  type MensajeExportado,
+} from "./export.js";
 
 export const channelRoutes: FastifyPluginAsync = async (app) => {
   // Las secciones de la barra lateral. Pública: se lee sin sesión.
@@ -86,6 +93,121 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(201).send({ message });
     },
   );
+
+  /**
+   * Llevarse el debate entero.
+   *
+   * Se escribe al stream por lotes en vez de armar el documento en memoria:
+   * una sección con decenas de miles de mensajes no cabe. Con límite propio
+   * de peticiones porque es, de lejos, lo más caro que hace este módulo.
+   */
+  app.get(
+    "/channels/:slug/export",
+    { config: { rateLimit: { max: 3, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const { slug } = z.object({ slug: z.string().min(1).max(100) }).parse(req.params);
+      const { format } = z
+        .object({ format: z.enum(["md", "json"]).default("md") })
+        .parse(req.query);
+
+      const channel = await getChannelBySlug(app.db, slug);
+
+      // Las cabeceras van en el raw, no con reply.header(): al escribir
+      // directamente en el stream nos saltamos a Fastify, y lo que haya
+      // puesto él nunca llega. Sin Content-Disposition el navegador muestra
+      // el documento en vez de guardarlo, que es justo lo contrario de
+      // "descargar el debate".
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        "Content-Type":
+          format === "md" ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${nombreDeExportacion(channel.slug, format)}"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+
+      if (format === "json") {
+        // Se arma a mano para poder ir escribiendo: JSON.stringify de todo
+        // junto obligaría a tener el array entero en memoria.
+        reply.raw.write(
+          `{"channel":${JSON.stringify({
+            slug: channel.slug,
+            name: channel.name,
+            topic: channel.topic,
+          })},"messages":[`,
+        );
+        let primero = true;
+        for await (const m of recorrerMensajes(app.db, channel.id as string)) {
+          reply.raw.write((primero ? "" : ",") + JSON.stringify(m));
+          primero = false;
+        }
+        reply.raw.write("]}");
+      } else {
+        reply.raw.write(cabeceraMarkdown({ name: channel.name, topic: channel.topic }));
+        for await (const m of recorrerMensajes(app.db, channel.id as string)) {
+          reply.raw.write(mensajeAMarkdown(m as unknown as MensajeExportado));
+        }
+      }
+
+      reply.raw.end();
+    },
+  );
+
+  /**
+   * El canal por el que llegan los avisos de mensajes nuevos.
+   *
+   * Es text/event-stream: el navegador lo abre con EventSource, que reconecta
+   * solo si se corta. Va exenta del límite de peticiones porque una conexión
+   * abierta no es una ráfaga, y sin X-Accel-Buffering el proxy guardaría los
+   * avisos en un búfer y llegarían a destiempo o no llegarían.
+   */
+  app.get("/channels/:id/stream", { config: { rateLimit: false } }, async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+
+    const enviar = (evento: string, datos: unknown) => {
+      // Si el navegador ya cerró, escribir lanza: que no se lleve el proceso.
+      try {
+        reply.raw.write(`event: ${evento}\ndata: ${JSON.stringify(datos)}\n\n`);
+      } catch {
+        /* conexión cerrada */
+      }
+    };
+
+    enviar("listo", { channelId: id });
+
+    const baja = app.bus.suscribir(id, (aviso) => {
+      // Sólo el id: el navegador pide el mensaje con la misma consulta de
+      // siempre, que ya filtra visibilidad. Mandar el texto acá sería
+      // duplicar ese filtro y arriesgarse a saltárselo.
+      enviar("mensaje", aviso);
+    });
+
+    // Sin esto, el proxy corta la conexión por inactividad en una sección
+    // tranquila y el navegador tiene que reconectar cada pocos minutos.
+    const latido = setInterval(() => {
+      try {
+        reply.raw.write(": ping\n\n");
+      } catch {
+        /* conexión cerrada */
+      }
+    }, 25_000);
+    latido.unref();
+
+    const cerrar = () => {
+      clearInterval(latido);
+      baja();
+    };
+    req.raw.on("close", cerrar);
+    req.raw.on("error", cerrar);
+  });
 
   // Colgarle algo a un mensaje: un libro, un fragmento de código o un repo.
   app.post("/messages/:id/attachments", async (req, reply) => {

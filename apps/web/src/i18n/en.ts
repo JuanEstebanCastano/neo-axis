@@ -479,4 +479,5 @@ export const en: Record<TranslationKey, string> = {
   "attach.open": "Open on GitHub",
   "attach.remove": "Remove",
   "attach.goToLibrary": "Go to Library",
+  "community.export": "Download the discussion",
 };

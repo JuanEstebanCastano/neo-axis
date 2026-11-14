@@ -241,6 +241,9 @@ export const api = {
     req<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
   /** Para el botón de descargar: es una navegación, no un fetch. */
   snippetRawUrl: (id: string) => apiUrl(`/snippets/${id}/raw`),
+  /** Llevarse el debate entero de una sección. También es navegación. */
+  channelExportUrl: (slug: string, format: "md" | "json" = "md") =>
+    apiUrl(`/channels/${slug}/export?format=${format}`),
   importFromRepo: (b: { owner: string; repo: string; path: string; title?: string }) =>
     req<{ snippet: Snippet }>("/snippets/from-repo", {
       method: "POST",

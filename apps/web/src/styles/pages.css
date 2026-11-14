@@ -1095,3 +1095,9 @@
   gap: var(--sp-4);
   flex-wrap: wrap;
 }
+
+/* La cabecera de la sección reparte nombre a un lado y descarga al otro. */
+.comunidad__cab .row.spread {
+  width: 100%;
+  gap: var(--sp-4);
+}

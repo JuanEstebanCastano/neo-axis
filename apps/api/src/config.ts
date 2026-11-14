@@ -31,6 +31,12 @@ const schema = z.object({
   // dominios distintos. 'lax' alcanza cuando comparten origen (proxy en dev).
   COOKIE_SAMESITE: z.enum(["lax", "none", "strict"]).default("lax"),
 
+  // De dónde salen los avisos de "hay un mensaje nuevo".
+  //   listen -> LISTEN/NOTIFY de Postgres (lo normal)
+  //   poll   -> una consulta por segundo y por réplica, si el pooler diera guerra
+  //   off    -> sin empuje; el navegador se refresca solo cada pocos segundos
+  REALTIME_SOURCE: z.enum(["listen", "poll", "off"]).default("listen"),
+
   // ── Integración con GitHub (gists) ──
   // Credenciales de la OAuth App. Mirá docs/08-github-snippets.md para crearla.
   GITHUB_CLIENT_ID: z.string().optional(),
