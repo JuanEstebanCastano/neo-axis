@@ -88,7 +88,25 @@ const schema = z.object({
   }
 });
 
-const parsed = schema.safeParse(process.env);
+/**
+ * Un espacio pegado al copiar el valor de una variable ya rompió tres cosas:
+ * MAIL_TRANSPORT, SMTP_HOST y S3_REGION —esta última se firma DENTRO del
+ * hostname de S3, así que un " us-east-1" tumbaba la subida entera sin dejar
+ * rastro—. Por eso se recortan TODAS antes de validar, no sólo las que ya
+ * fallaron. Y una que quede vacía tras recortar se trata como ausente: así su
+ * default o su optional entra en vez de un "" que nadie quiso poner.
+ */
+function limpiarEnv(raw: NodeJS.ProcessEnv): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [clave, valor] of Object.entries(raw)) {
+    if (typeof valor !== "string") continue;
+    const recortado = valor.trim();
+    out[clave] = recortado === "" ? undefined : recortado;
+  }
+  return out;
+}
+
+const parsed = schema.safeParse(limpiarEnv(process.env));
 
 if (!parsed.success) {
   console.error("Configuración inválida:\n", prettifyZodError(parsed.error));

@@ -17,6 +17,19 @@ import { processEmailBatch } from "./jobs/email.js";
 import { createSmtpMailer, createMailerSendMailer, parseMailFrom, type Mailer } from "./lib/mailer.js";
 import { purgeExpiredSessions, purgeSoftDeletedPosts, purgeConsumedTokens } from "./jobs/maintenance.js";
 
+// Recorta toda variable antes de validar y trata la que quede vacía como
+// ausente. Un espacio pegado al copiar ya rompió MAIL_TRANSPORT y SMTP_HOST
+// acá, igual que S3_REGION en el API. Mismo criterio que apps/api/src/config.ts.
+function limpiarEnv(raw: NodeJS.ProcessEnv): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [clave, valor] of Object.entries(raw)) {
+    if (typeof valor !== "string") continue;
+    const recortado = valor.trim();
+    out[clave] = recortado === "" ? undefined : recortado;
+  }
+  return out;
+}
+
 const env = z.object({
   DATABASE_URL: z.string().url(),
   // Elige el transporte de correo. "mailersend" usa la API HTTP (puerto 443),
@@ -40,7 +53,7 @@ const env = z.object({
   } else if (!val.MAILERSEND_API_KEY) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["MAILERSEND_API_KEY"], message: "requerida con MAIL_TRANSPORT=mailersend" });
   }
-}).parse(process.env);
+}).parse(limpiarEnv(process.env));
 
 const db = createDb({ connectionString: env.DATABASE_URL, maxConnections: 4 });
 await assertDatabaseReady(db);
