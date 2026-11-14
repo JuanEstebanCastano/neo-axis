@@ -9,7 +9,7 @@
 
 import type { Database, Transaction, DB } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
-import { notFound } from "../../lib/errors.js";
+import { notFound, forbidden } from "../../lib/errors.js";
 import type { LibroExterno } from "./gutendex.js";
 import type { BooksQuery, LinkBookInput } from "./schemas.js";
 
@@ -134,13 +134,25 @@ export async function getBook(db: Database, id: string) {
   const book = rows[0];
   if (!book) throw notFound("Libro no encontrado");
 
+  // byteSize y ownerId salen del media_asset: el primero para que la pantalla
+  // avise cuánto pesa antes de que alguien empiece a bajarlo, el segundo para
+  // saber si a quien mira le corresponde el botón de borrar.
   const files = await db
-    .selectFrom("bookFiles")
-    .select(["id", "format", "accessLevel"])
-    .where("bookId", "=", id)
+    .selectFrom("bookFiles as bf")
+    .innerJoin("mediaAssets as ma", "ma.id", "bf.mediaAssetId")
+    .select([
+      "bf.id as id",
+      "bf.format as format",
+      "bf.accessLevel as accessLevel",
+      "ma.byteSize as byteSize",
+      "ma.ownerId as ownerId",
+    ])
+    .where("bf.bookId", "=", id)
     .execute();
 
-  return { ...book, files };
+  // byteSize es bigint en la base y llega como BigInt, que JSON.stringify no
+  // sabe serializar: sin este Number(), la respuesta entera revienta.
+  return { ...book, files: files.map((f) => ({ ...f, byteSize: Number(f.byteSize) })) };
 }
 
 export type ShelfStatus = "want" | "reading" | "read";
@@ -305,4 +317,108 @@ export async function agregarLibroPorEnlace(
   });
 
   return { bookId };
+}
+
+// ── Archivos del libro (lo que alojamos nosotros) ──────────────────────
+
+export interface ArchivoAGuardar {
+  bookId: string;
+  /** Quién lo sube: queda en media_assets.owner_id y es quien puede borrarlo. */
+  ownerId: string;
+  format: "epub" | "pdf" | "mobi";
+  accessLevel: "public" | "community" | "restricted";
+  bucketName: string;
+  objectKey: string;
+  mediaType: string;
+  byteSize: number;
+  checksumSha256: Buffer;
+}
+
+/**
+ * Anota un archivo ya subido al storage: una fila en media_assets (el objeto)
+ * y otra en book_files (que ese objeto es tal formato de tal libro).
+ *
+ * Las dos van en una transacción porque por separado dejan basura que nadie
+ * vuelve a mirar: un media_asset sin book_files es un archivo pago y
+ * escondido, y la FK impide el caso inverso.
+ *
+ * El libro se comprueba acá dentro y no antes: entre un SELECT previo y el
+ * INSERT alguien pudo borrarlo, y el error de FK que saldría entonces es
+ * ilegible para quien está mirando la pantalla.
+ */
+export async function guardarArchivoDeLibro(db: Database, a: ArchivoAGuardar) {
+  return db.transaction().execute(async (trx) => {
+    const libro = await trx
+      .selectFrom("books")
+      .select(["id"])
+      .where("id", "=", a.bookId)
+      .where("deletedAt", "is", null)
+      .executeTakeFirst();
+    if (!libro) throw notFound("Libro no encontrado");
+
+    const asset = await trx
+      .insertInto("mediaAssets")
+      .values({
+        ownerId: a.ownerId,
+        bucketName: a.bucketName,
+        objectKey: a.objectKey,
+        mediaType: a.mediaType,
+        byteSize: BigInt(a.byteSize),
+        checksumSha256: a.checksumSha256,
+      })
+      .returning(["id"])
+      .executeTakeFirstOrThrow();
+
+    const file = await trx
+      .insertInto("bookFiles")
+      .values({
+        bookId: a.bookId,
+        mediaAssetId: asset.id,
+        format: a.format,
+        accessLevel: a.accessLevel,
+      })
+      .returning(["id", "format", "accessLevel", "createdAt"])
+      .executeTakeFirstOrThrow();
+
+    return file;
+  });
+}
+
+/**
+ * Saca el archivo del catálogo y devuelve dónde vivía, para que quien llama
+ * borre el objeto del storage.
+ *
+ * Primero la base y después el storage, no al revés: si el borrado del objeto
+ * falla, queda un objeto sin referencia (plata, nada más); si se cayera en el
+ * medio al revés, quedaría una fila que promete un archivo que ya no existe y
+ * el botón de descargar daría un error raro.
+ *
+ * Sólo lo borra quien lo subió. Es la misma regla que usa el resto del
+ * proyecto cuando todavía no hay roles finos, y no hace falta más para que
+ * nadie te vacíe la biblioteca.
+ */
+export async function eliminarArchivoDeLibro(db: Database, fileId: string, userId: string) {
+  return db.transaction().execute(async (trx) => {
+    const file = await trx
+      .selectFrom("bookFiles as bf")
+      .innerJoin("mediaAssets as ma", "ma.id", "bf.mediaAssetId")
+      .select([
+        "bf.id as id",
+        "bf.mediaAssetId as mediaAssetId",
+        "ma.ownerId as ownerId",
+        "ma.bucketName as bucketName",
+        "ma.objectKey as objectKey",
+      ])
+      .where("bf.id", "=", fileId)
+      .executeTakeFirst();
+
+    if (!file) throw notFound("Archivo de libro no encontrado");
+    if (file.ownerId !== userId) throw forbidden("Sólo quien subió el archivo puede borrarlo");
+
+    // book_files primero: media_assets tiene ON DELETE RESTRICT del otro lado.
+    await trx.deleteFrom("bookFiles").where("id", "=", fileId).execute();
+    await trx.deleteFrom("mediaAssets").where("id", "=", file.mediaAssetId).execute();
+
+    return { bucketName: file.bucketName, objectKey: file.objectKey };
+  });
 }

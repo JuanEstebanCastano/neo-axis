@@ -73,10 +73,20 @@ export interface CollectionItem {
   id: string; itemType: "book" | "repository" | "snippet" | "post";
   itemId: string | null; title: string | null; note: string | null; sortOrder: number;
 }
+/** Un archivo que alojamos nosotros (no un enlace a otra parte). */
+export interface BookFile {
+  id: string;
+  format: "epub" | "pdf" | "mobi";
+  accessLevel: "public" | "community" | "restricted";
+  byteSize: number;
+  /** Quién lo subió: sólo esa persona ve el botón de borrar. */
+  ownerId: string;
+}
+
 export interface Book {
   id: string; title: string; publicationYear: number | null; coverUrl: string | null;
   languageCode: string | null; authors: string[]; ratingAvg: number | null;
-  files?: { id: string; format: string; accessLevel: string }[];
+  files?: BookFile[];
   // Enlaces a la fuente externa. Nulos en los libros que alojamos nosotros:
   // ésos se descargan firmados desde `files`.
   readUrl: string | null; downloadUrl: string | null;
@@ -316,6 +326,29 @@ export const api = {
     req<{ ok: boolean }>(`/books/${id}/shelf`, { method: "PUT", body: JSON.stringify(b) }),
   bookFileDownload: (fileId: string) =>
     req<{ url: string; expiresInSeconds: number }>(`/book-files/${fileId}/download`),
+
+  /**
+   * Sube el archivo de un libro: el cuerpo es el archivo tal cual, sin
+   * multipart ni base64 (ver books/routes.ts). El Content-Type se manda sólo
+   * si es uno de los que el servidor acepta; con cualquier otro —el navegador
+   * suele decir "application/zip" de un epub, o nada de un .mobi— va
+   * octet-stream, porque de todos modos el formato se decide mirando los
+   * bytes del archivo, no esta cabecera.
+   */
+  uploadBookFile: (bookId: string, file: File, accessLevel: "public" | "community" = "community") => {
+    const aceptados = [
+      "application/epub+zip",
+      "application/pdf",
+      "application/x-mobipocket-ebook",
+    ];
+    const tipo = aceptados.includes(file.type) ? file.type : "application/octet-stream";
+    return req<{ file: BookFile }>(
+      `/books/${bookId}/files?accessLevel=${accessLevel}`,
+      { method: "POST", body: file, headers: { "Content-Type": tipo } },
+    );
+  },
+  deleteBookFile: (fileId: string) =>
+    req<{ ok: boolean }>(`/book-files/${fileId}`, { method: "DELETE" }),
 
   recommend: (p: { q?: string; entityId?: string; limit?: number }) => {
     const qs = new URLSearchParams();
