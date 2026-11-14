@@ -43,6 +43,12 @@ En este orden, porque cada paso usa lo del anterior.
    que los libros nuevos entren en la misma pasada; el reindex admite dos
    llamadas por hora.
 
+   **Reindexar exige rol Administrator** (permiso `users.manage_roles`). Los
+   diez usuarios de producción nacieron con rol User, así que durante un tiempo
+   ese botón devolvía 403 para todo el mundo; `casta21` ya lo tiene asignado.
+   El permiso se lee de la base en cada petición, así que no hace falta volver
+   a entrar.
+
    Cargales los autores a los libros que agregues a mano: el documento de un
    libro es su título más quien lo escribió, así que sin autor queda casi sin
    con qué parecerse a nada. Los dos que hay hoy no tienen ninguno.
