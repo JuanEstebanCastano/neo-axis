@@ -165,6 +165,77 @@ export async function recommendByEmbedding(
 }
 
 /**
+ * El texto con el que un libro entra al índice.
+ *
+ * Un libro no tiene cuerpo que indexar: no guardamos la obra, sólo su ficha.
+ * Lo único que lo distingue de otro es el título, quién lo escribió y de
+ * cuándo es, así que eso ES el documento. Por eso va aparte y es una función
+ * pura: es la única parte de la indexación que se puede probar sin base.
+ *
+ * El autor pesa tanto como el título a propósito. Quien busca "García
+ * Márquez" espera sus libros, y para el embedding "Cien años de soledad,
+ * Gabriel García Márquez" y "El amor en los tiempos del cólera, Gabriel
+ * García Márquez" quedan cerca, que es exactamente lo que "parecidos a este"
+ * tiene que contestar.
+ */
+export function textoDeLibro(
+  titulo: string,
+  autores: string[],
+  anio?: number | null,
+): { title: string; content: string } {
+  const firmas = autores.map((a) => a.trim()).filter(Boolean);
+  const partes = [firmas.join(", "), anio ? String(anio) : ""].filter(Boolean);
+  return { title: titulo.trim(), content: partes.join(" · ") };
+}
+
+/**
+ * Mete en el índice los libros que nunca entraron.
+ *
+ * Hacía falta porque la indexación de libros se conectó tarde: el tipo "book"
+ * existía en IndexableEntity desde el principio y nadie lo escribía, así que
+ * todo libro anterior a ese arreglo está fuera del índice y "parecidos a
+ * este" no lo encuentra jamás. Se llama desde el reindex, que es donde la
+ * persona ya está pidiendo que se arregle el pasado.
+ *
+ * Sólo inserta los que faltan: el que ya está indexado se mantiene como está,
+ * porque su documento puede haber cambiado por otra vía y no es asunto de un
+ * backfill decidirlo.
+ */
+export async function backfillBookDocuments(db: Database, batch = 500): Promise<number> {
+  const { rows } = await sql<{
+    id: string;
+    title: string;
+    publicationYear: number | null;
+    authors: string[];
+  }>`
+    SELECT b.id,
+           b.title,
+           b.publication_year AS "publicationYear",
+           coalesce(
+             array_agg(a.name ORDER BY l.author_order) FILTER (WHERE a.name IS NOT NULL),
+             ARRAY[]::text[]
+           ) AS authors
+    FROM app.books b
+    LEFT JOIN app.book_author_links l ON l.book_id = b.id
+    LEFT JOIN app.book_authors a ON a.id = l.author_id
+    WHERE b.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM app.search_documents sd
+        WHERE sd.entity_type = 'book' AND sd.entity_id = b.id
+      )
+    GROUP BY b.id
+    LIMIT ${batch}
+  `.execute(db);
+
+  for (const libro of rows) {
+    const doc = textoDeLibro(libro.title, libro.authors, libro.publicationYear);
+    await upsertSearchDocument(db, { entityType: "book", entityId: libro.id, ...doc });
+  }
+
+  return rows.length;
+}
+
+/**
  * Genera y guarda los embeddings que falten en search_documents.
  * Pensado para backfill o un job periódico; devuelve cuántos indexó.
  */

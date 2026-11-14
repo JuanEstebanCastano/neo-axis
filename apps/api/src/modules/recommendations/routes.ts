@@ -14,7 +14,7 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { embedText, embeddingsEnabled } from "../../lib/embeddings.js";
-import { recommendByEmbedding, backfillEmbeddings } from "../../lib/search.js";
+import { recommendByEmbedding, backfillEmbeddings, backfillBookDocuments } from "../../lib/search.js";
 import { canViewPost, PERMISSIONS } from "../../lib/rbac.js";
 import { AppError, badRequest, notFound } from "../../lib/errors.js";
 import { recommendQuery } from "./schemas.js";
@@ -65,7 +65,11 @@ export const recommendationRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     if (!embeddingsEnabled()) throw disabled();
     await app.requirePermission(PERMISSIONS.usersManageRoles)(req);
+    // Primero los libros que nunca entraron al índice, y recién después los
+    // vectores: al revés, los documentos recién creados quedarían sin embedding
+    // hasta el siguiente reindex, que está limitado a 2 por hora.
+    const libros = await backfillBookDocuments(app.db);
     const indexed = await backfillEmbeddings(app.db, embedText);
-    return { indexed };
+    return { indexed, libros };
   });
 };

@@ -17,7 +17,7 @@ Medido contra la base, no de memoria:
 | Publicaciones | 8 | Alcanza |
 | Colecciones | 1 | Justo |
 | Conexiones de GitHub | 1 | Alcanza, pero ver abajo |
-| Indexados para búsqueda | 5, de los cuales 3 con embedding | **Dos quedaron sin vector: "Parecidos a este" puede salir vacío** |
+| Indexados para búsqueda | 5, todos publicaciones | **Ningún libro estaba indexado** (corregido; hay que reindexar) |
 | Archivos de libro subidos | 0 | Nunca se ejercitó el storage |
 
 Los dos libros se llaman "El libro de prueba" y "cien años de soledad" (sí, en
@@ -37,8 +37,15 @@ En este orden, porque cada paso usa lo del anterior.
 3. **Subir un EPUB** a uno de esos libros. Es la prueba pendiente del storage
    (ver abajo).
 4. **Crear 2 o 3 canales más** en Comunidad, con nombres que se entiendan solos.
-5. **Reindexar en *Descubrir*** para que los dos documentos sin vector lo
-   tengan. Después, abrí un libro y confirmá que "Parecidos a este" muestra algo.
+5. **Reindexar en *Descubrir***. Hace tres cosas: mete al índice los libros
+   que nunca entraron, completa los dos vectores que faltaban y deja
+   "Parecidos a este" funcionando. Tiene que ir **después** de importar, para
+   que los libros nuevos entren en la misma pasada; el reindex admite dos
+   llamadas por hora.
+
+   Cargales los autores a los libros que agregues a mano: el documento de un
+   libro es su título más quien lo escribió, así que sin autor queda casi sin
+   con qué parecerse a nada. Los dos que hay hoy no tienen ninguno.
 6. **Armar una colección** con cosas de distinto tipo —un libro, un fragmento
    de código, una publicación—, porque el punto de las colecciones es
    justamente que mezclan.
@@ -70,7 +77,7 @@ demuestra nada; uno que rechaza con un motivo entendible, sí.
 |---|---|---|
 | Gutendex no responde o el host no lo alcanza | **Media** — nunca corrió en producción | Tener libros ya importados de antes; mostrar la ficha en vez de la importación |
 | La subida de archivo falla por permisos del bucket | Baja | Ver abajo: probarlo antes |
-| "Parecidos a este" sale vacío | **Media** si no se reindexa | Reindexar en el paso 5 de la siembra |
+| "Parecidos a este" sale vacío | **Alta si no se reindexa**: los libros entraron al índice recién ahora | Reindexar en el paso 5 de la siembra y comprobarlo en una ficha antes |
 | GitHub: publicar / sincronizar / importar | **Media** — están desplegadas pero nunca se ejercitaron | Probar las tres antes; si alguna falla, mostrar sólo lectura de archivos |
 | La sesión expira en medio de la demo | Baja | Entrar justo antes, no la noche anterior |
 

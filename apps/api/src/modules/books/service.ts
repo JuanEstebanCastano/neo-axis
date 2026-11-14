@@ -10,6 +10,7 @@
 import type { Database, Transaction, DB } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
 import { notFound, forbidden } from "../../lib/errors.js";
+import { upsertSearchDocument, textoDeLibro } from "../../lib/search.js";
 import type { LibroExterno } from "./gutendex.js";
 import type { BooksQuery, LinkBookInput } from "./schemas.js";
 
@@ -225,6 +226,16 @@ export async function importarLibroExterno(db: Database, libro: LibroExterno) {
       .executeTakeFirstOrThrow();
 
     await vincularAutores(trx, book.id, libro.authors);
+
+    // Dentro de la transacción, como todo el resto del índice: un libro que
+    // existe pero no se encuentra al buscarlo es peor que uno que no se
+    // importó. Si esto falla, no hay libro.
+    await upsertSearchDocument(trx, {
+      entityType: "book",
+      entityId: book.id,
+      ...textoDeLibro(libro.title, libro.authors, libro.publicationYear),
+    });
+
     return book.id;
   });
 
@@ -313,6 +324,13 @@ export async function agregarLibroPorEnlace(
       .executeTakeFirstOrThrow();
 
     await vincularAutores(trx, book.id, datos.authors);
+
+    await upsertSearchDocument(trx, {
+      entityType: "book",
+      entityId: book.id,
+      ...textoDeLibro(datos.title, datos.authors, datos.publicationYear),
+    });
+
     return book.id;
   });
 

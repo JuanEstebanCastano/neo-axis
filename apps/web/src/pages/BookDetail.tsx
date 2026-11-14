@@ -152,11 +152,23 @@ function ArchivosDelLibro({
   );
 }
 
-function Recommendations({ query }: { query: string }) {
+/**
+ * Parecidos a este libro.
+ *
+ * Va por entityId y no por el título: el endpoint excluye la entidad que se
+ * le pregunta, y ahora que los libros SÍ se indexan, preguntar por el título
+ * devolvería este mismo libro en el primer puesto con 100% de afinidad.
+ *
+ * Si el libro todavía no está indexado —los anteriores al arreglo lo están
+ * recién después de reindexar— el endpoint responde 404 y acá se ve el mismo
+ * "sin sugerencias" de siempre, que es la verdad: no hay con qué compararlo.
+ */
+function Recommendations({ bookId }: { bookId: string }) {
   const { t } = useI18n();
   const { data, isLoading } = useQuery({
-    queryKey: ["reco", query],
-    queryFn: () => api.recommend({ q: query, limit: 5 }),
+    queryKey: ["reco", bookId],
+    queryFn: () => api.recommend({ entityId: bookId, limit: 5 }),
+    retry: false,
   });
 
   if (isLoading) return <Skeleton h={54} r={14} />;
@@ -344,7 +356,7 @@ export function BookDetail() {
 
             <section className="detail__block">
               <h3>{t("book.similar")}</h3>
-              <Recommendations query={`${book.title} ${book.authors.join(" ")}`} />
+              <Recommendations bookId={book.id} />
             </section>
           </div>
         </div>
