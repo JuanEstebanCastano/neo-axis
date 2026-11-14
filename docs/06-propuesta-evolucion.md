@@ -86,5 +86,6 @@ Acotado, demostrable y con una historia clara para la defensa.
 ## Próximos pasos (capa de aplicación)
 
 1. Endpoints de colecciones (crear, agregar ítem, listar) — reusa el patrón de `modules/posts`.
-2. Subida y lectura protegida de `book_files` (presigned URLs de S3 según `access_level`).
+2. ~~Subida y lectura protegida de `book_files` (presigned URLs de S3 según `access_level`).~~
+   **Hecho** → [11-archivos-de-libros.md](11-archivos-de-libros.md).
 3. Edge Function de embeddings + endpoint `/recomendaciones`.

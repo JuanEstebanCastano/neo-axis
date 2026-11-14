@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell } from "../components/Shell";
-import { Surface, Button, Skeleton, EmptyState, Stars, Badge, Segmented } from "../components/ui";
+import { Surface, Button, Skeleton, EmptyState, Stars, Badge, Segmented, Field } from "../components/ui";
 import { Icon } from "../components/Icon";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, type BookFile } from "../lib/api";
+import { peso } from "../lib/formato";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import type { TranslationKey } from "../i18n";
@@ -14,6 +15,142 @@ const SHELF: { key: string; label: TranslationKey }[] = [
   { key: "reading", label: "book.shelfReading" },
   { key: "read", label: "book.shelfRead" },
 ];
+
+/**
+ * El mismo tope que BOOK_FILE_MAX_MB en el API. Acá sólo sirve para avisar
+ * antes de empezar a subir; quien decide sigue siendo el servidor.
+ */
+const MAX_MB = 25;
+
+/**
+ * Los archivos que alojamos nosotros: listarlos, subir uno, borrar el propio.
+ *
+ * Va aparte de los enlaces externos y no en su lugar: un libro de Gutenberg
+ * tiene enlace a la fuente Y puede tener un EPUB nuestro. Antes esto era un
+ * if/else y el archivo subido quedaba invisible en todo libro importado.
+ */
+function ArchivosDelLibro({
+  bookId,
+  files,
+  onDownload,
+}: {
+  bookId: string;
+  files: BookFile[];
+  onDownload: (fileId: string) => void;
+}) {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const input = useRef<HTMLInputElement>(null);
+  const [acceso, setAcceso] = useState<"public" | "community">("community");
+  const [error, setError] = useState<string | null>(null);
+
+  const subir = useMutation({
+    mutationFn: (file: File) => api.uploadBookFile(bookId, file, acceso),
+    onSuccess: () => {
+      setError(null);
+      if (input.current) input.current.value = "";
+      qc.invalidateQueries({ queryKey: ["book", bookId] });
+    },
+    onError: (e) => {
+      // 413 lo corta Fastify antes de llegar a nuestro código, y su mensaje
+      // es una constante interna en inglés. El resto de los errores de esta
+      // ruta ya vienen explicados desde el servidor.
+      if (e instanceof ApiError && e.status === 413) {
+        setError(t("book.uploadTooBig", { size: "", mb: MAX_MB }));
+      } else if (e instanceof ApiError && e.status === 401) {
+        navigate("/auth");
+      } else {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+  });
+
+  const borrar = useMutation({
+    mutationFn: (fileId: string) => api.deleteBookFile(fileId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["book", bookId] }),
+    onError: (e) => setError(e instanceof Error ? e.message : String(e)),
+  });
+
+  function elegir(file: File | undefined) {
+    if (!file) return;
+    // El tamaño se mira acá para no gastar la subida entera en algo que el
+    // servidor va a rechazar igual. El límite de verdad sigue siendo el suyo.
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(t("book.uploadTooBig", { size: peso(file.size), mb: MAX_MB }));
+      if (input.current) input.current.value = "";
+      return;
+    }
+    setError(null);
+    subir.mutate(file);
+  }
+
+  return (
+    <div className="stack stack--sm">
+      {files.length > 0 ? (
+        <div className="stack stack--xs">
+          {files.map((f) => (
+            <div className="row row--sm spread" key={f.id}>
+              <Button variant="soft" icon="download" onClick={() => onDownload(f.id)}>
+                {f.format.toUpperCase()}
+              </Button>
+              <span className="file-row__meta">{peso(f.byteSize)}</span>
+              {f.accessLevel === "public" && <Badge>{t("book.accessPublic")}</Badge>}
+              {user?.id === f.ownerId && (
+                <Button
+                  variant="ghost"
+                  icon="trash"
+                  loading={borrar.isPending}
+                  onClick={() => {
+                    if (confirm(t("book.deleteFileConfirm", { format: f.format.toUpperCase() })))
+                      borrar.mutate(f.id);
+                  }}
+                >
+                  {t("book.deleteFile")}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="book__author">{t("book.noFiles")}</p>
+      )}
+
+      {user ? (
+        <>
+          <Field label={t("book.upload")} hint={t("book.uploadHint", { mb: MAX_MB })} error={error ?? undefined}>
+            <input
+              ref={input}
+              className="input input--file"
+              type="file"
+              accept=".epub,.pdf,.mobi,application/epub+zip,application/pdf"
+              disabled={subir.isPending}
+              onChange={(e) => elegir(e.target.files?.[0])}
+            />
+          </Field>
+          <div className="row row--sm">
+            <Segmented
+              label={t("book.access")}
+              value={acceso}
+              disabled={subir.isPending}
+              onChange={(v) => setAcceso(v)}
+              options={[
+                { value: "community", label: t("book.accessCommunity") },
+                { value: "public", label: t("book.accessPublic") },
+              ]}
+            />
+            {subir.isPending && <span className="file-row__meta">{t("book.uploading")}</span>}
+          </div>
+        </>
+      ) : (
+        <Button variant="soft" onClick={() => navigate("/auth")}>
+          {t("book.signInToUpload")}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 function Recommendations({ query }: { query: string }) {
   const { t } = useI18n();
@@ -150,7 +287,7 @@ export function BookDetail() {
                   `files` son archivos nuestros, que se bajan con una URL
                   firmada. `readUrl`/`downloadUrl` viven en la fuente externa:
                   guardamos el enlace, no el archivo. */}
-              {book.readUrl || book.downloadUrl ? (
+              {(book.readUrl || book.downloadUrl) && (
                 <div className="stack stack--sm">
                   <div className="ext-actions">
                     {book.readUrl && (
@@ -192,17 +329,17 @@ export function BookDetail() {
                     <p className="book__author measure">{t("book.rights", { note: book.rightsNote })}</p>
                   )}
                 </div>
-              ) : book.files && book.files.length > 0 ? (
-                <div className="row row--sm">
-                  {book.files.map((f) => (
-                    <Button key={f.id} variant="soft" icon="download" onClick={() => download(f.id)}>
-                      {f.format.toUpperCase()}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <p className="book__author">{t("book.noFiles")}</p>
               )}
+
+              {/* Lo nuestro va SIEMPRE, aunque el libro tenga enlaces afuera:
+                  un libro importado de Gutenberg puede tener además un EPUB
+                  subido acá, y antes ese archivo quedaba invisible. */}
+              {(book.readUrl || book.downloadUrl) && <h4 className="detail__sub">{t("book.ourFiles")}</h4>}
+              <ArchivosDelLibro
+                bookId={book.id}
+                files={book.files ?? []}
+                onDownload={download}
+              />
             </section>
 
             <section className="detail__block">

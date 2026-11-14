@@ -34,13 +34,7 @@ import {
   type RepoEntry,
 } from "../lib/api";
 import { useI18n } from "../context/I18nContext";
-
-/** 1,2 MB -> "1.2 MB". Para que el tamaño diga algo a simple vista. */
-function peso(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
+import { peso } from "../lib/formato";
 
 /**
  * Lee un archivo del disco como base64.

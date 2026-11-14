@@ -346,6 +346,19 @@
   letter-spacing: 0.05em;
 }
 
+/* Separa los archivos que alojamos nosotros de los enlaces a la fuente
+   externa, dentro del mismo bloque de formatos. Un escalón por debajo del
+   h3: no es otra sección, es la otra mitad de la misma. */
+.detail__sub {
+  margin-top: var(--sp-5);
+  margin-bottom: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 1040px) {
   .detail {
     grid-template-columns: 190px minmax(0, 1fr);

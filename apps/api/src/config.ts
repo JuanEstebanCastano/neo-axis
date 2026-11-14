@@ -57,6 +57,11 @@ const schema = z.object({
   S3_SECRET_KEY: z.string().min(1),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
 
+  // Cuánto puede pesar un archivo de libro, en megabytes. 25 MB cubre
+  // cualquier EPUB y casi todo PDF de texto; los escaneos de 300 MB quedan
+  // afuera a propósito: la subida pasa por la memoria del API.
+  BOOK_FILE_MAX_MB: z.coerce.number().int().positive().max(200).default(25),
+
   // Recomendaciones semánticas (opcional). URL de la Edge Function de embeddings
   // y el token (JWT anon) con el que el API la invoca.
   EMBEDDINGS_URL: z.string().url().optional(),
