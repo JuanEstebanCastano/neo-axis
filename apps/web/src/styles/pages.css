@@ -1010,3 +1010,94 @@
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
+
+/* ── Adjuntos de un mensaje ────────────────────────────────────────── */
+
+.adj__lista {
+  list-style: none;
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.adj {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--nm-inset-sm);
+}
+
+.adj__texto {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.adj__titulo {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.adj__nota {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.adj__acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.adj__accion {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.adj__accion:hover {
+  color: var(--accent-on-soft);
+  text-decoration: underline;
+}
+
+.adj__accion--riesgo:hover {
+  color: var(--danger);
+}
+
+.adj__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+/* Las acciones del pie de un mensaje: responder y adjuntar. */
+.msg__pie {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* La cabecera de la sección reparte nombre a un lado y descarga al otro. */
+.comunidad__cab .row.spread {
+  width: 100%;
+  gap: var(--sp-4);
+}

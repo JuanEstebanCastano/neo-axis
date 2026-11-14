@@ -20,6 +20,7 @@ import rateLimit from "@fastify/rate-limit";
 
 import { config, isProduction } from "./config.js";
 import dbPlugin from "./plugins/db.js";
+import realtimePlugin from "./plugins/realtime.js";
 import authPlugin from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -91,6 +92,7 @@ await app.register(cookie, { secret: config.SESSION_SECRET });
 await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
 
 await app.register(dbPlugin);
+await app.register(realtimePlugin);
 await app.register(authPlugin);
 
 // IMPORTANTE: el error handler se define ANTES de registrar las rutas. Con el

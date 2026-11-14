@@ -48,10 +48,17 @@ export interface Channel {
   id: string; slug: string; name: string; description: string | null;
   topic: string | null; sortOrder: number; archivedAt: string | null; createdAt: string;
 }
+export interface Attachment {
+  id: string; postId: string;
+  attachmentType: "book" | "repository" | "snippet";
+  targetId: string; title: string | null; note: string | null;
+  downloadUrl: string | null; readUrl: string | null;
+  canonicalUrl: string | null; language: string | null;
+}
 export interface ChannelMessage {
   id: string; bodyMarkdown: string | null; createdAt: string; authorId: string;
   authorUsername: string; authorDisplayName: string; authorAvatarUrl: string | null;
-  commentCount: number;
+  commentCount: number; attachments: Attachment[];
 }
 export interface Comment {
   id: string; parentCommentId: string | null; bodyMarkdown: string; createdAt: string;
@@ -213,6 +220,32 @@ export const api = {
     req<{ channel: Channel }>("/channels", { method: "POST", body: JSON.stringify(b) }),
   sendMessage: (channelId: string, b: { bodyMarkdown: string }) =>
     req<{ message: ChannelMessage }>(`/channels/${channelId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+
+  // ── Adjuntos de un mensaje ──
+  // Un repositorio se adjunta por su dirección: la tabla de repos no la
+  // llena nadie más, así que el primero que lo adjunta lo da de alta.
+  attachToMessage: (
+    messageId: string,
+    b:
+      | { attachmentType: "book" | "snippet"; targetId: string; note?: string }
+      | { attachmentType: "repository"; repoUrl: string; note?: string },
+  ) =>
+    req<{ attachment: Attachment }>(`/messages/${messageId}/attachments`, {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  removeAttachment: (id: string) =>
+    req<{ ok: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
+  /** Para el botón de descargar: es una navegación, no un fetch. */
+  snippetRawUrl: (id: string) => apiUrl(`/snippets/${id}/raw`),
+  /** Llevarse el debate entero de una sección. También es navegación. */
+  channelExportUrl: (slug: string, format: "md" | "json" = "md") =>
+    apiUrl(`/channels/${slug}/export?format=${format}`),
+  importFromRepo: (b: { owner: string; repo: string; path: string; title?: string }) =>
+    req<{ snippet: Snippet }>("/snippets/from-repo", {
       method: "POST",
       body: JSON.stringify(b),
     }),

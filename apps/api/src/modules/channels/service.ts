@@ -21,7 +21,10 @@
 
 import type { Database } from "@neoaxis/db";
 import { conflict, notFound } from "../../lib/errors.js";
+import { listAttachmentsForPosts } from "./attachments.js";
+import { sql } from "@neoaxis/db";
 import { createPost } from "../posts/service.js";
+import { CANAL_PG, serializarAviso } from "../../lib/realtime.js";
 import { slugify } from "./slug.js";
 
 export interface CreateChannelInput {
@@ -31,6 +34,11 @@ export interface CreateChannelInput {
   topic?: string | null | undefined;
   createdBy: string;
 }
+
+/** Tope duro: una sección enorme no puede tumbar el servidor por un clic. */
+export const MAX_EXPORT = 20_000;
+/** Cuántos mensajes se leen por viaje al escribir la exportación. */
+const LOTE_EXPORT = 500;
 
 export interface ListMessagesInput {
   channelId: string;
@@ -141,11 +149,16 @@ export async function listMessages(db: Database, input: ListMessagesInput) {
 
   const rows = await query.execute();
 
+  // Los adjuntos de TODA la página en una consulta. Pedirlos mensaje por
+  // mensaje serían cincuenta viajes más al pooler para pintar una pantalla.
+  const adjuntos = await listAttachmentsForPosts(db, rows.map((r) => r.id as string));
+
   // Se piden en orden descendente (el índice los da así y el cursor funciona
   // sobre eso), pero se leen de viejo a nuevo, como cualquier conversación.
   const items = rows.reverse().map((r) => ({
     ...r,
     commentCount: Number(r.commentCount ?? 0),
+    attachments: adjuntos.get(r.id as string) ?? [],
   }));
 
   return {
@@ -153,6 +166,48 @@ export async function listMessages(db: Database, input: ListMessagesInput) {
     // El cursor para seguir hacia atrás es el id del más viejo de la tanda.
     nextBefore: rows.length === input.limit && items[0] ? items[0].id : null,
   };
+}
+
+/**
+ * Recorre los mensajes de una sección de viejo a nuevo, por lotes.
+ *
+ * Es un generador para que la ruta pueda ir escribiendo al stream: una
+ * sección con decenas de miles de mensajes no cabe en memoria, y un
+ * SELECT sin límite tampoco es amable con el pooler.
+ */
+export async function* recorrerMensajes(db: Database, channelId: string) {
+  let desde: string | null = null;
+  let entregados = 0;
+
+  while (entregados < MAX_EXPORT) {
+    let q = db
+      .selectFrom("posts as p")
+      .innerJoin("users as u", "u.id", "p.authorId")
+      .select([
+        "p.id as id",
+        "p.bodyMarkdown as bodyMarkdown",
+        "p.createdAt as createdAt",
+        "u.username as authorUsername",
+        "u.displayName as authorDisplayName",
+      ])
+      .where("p.channelId", "=", channelId)
+      .where("p.deletedAt", "is", null)
+      .where("p.status", "=", "published")
+      .where("p.hiddenAt", "is", null)
+      .orderBy("p.id", "asc")
+      .limit(Math.min(LOTE_EXPORT, MAX_EXPORT - entregados));
+
+    if (desde) q = q.where("p.id", ">", desde);
+
+    const lote = await q.execute();
+    if (lote.length === 0) return;
+
+    for (const m of lote) yield m;
+
+    entregados += lote.length;
+    desde = lote[lote.length - 1]!.id as string;
+    if (lote.length < LOTE_EXPORT) return;
+  }
 }
 
 /**
@@ -187,6 +242,21 @@ export async function createMessage(
     bodyMarkdown: input.bodyMarkdown,
     ...(input.mentionedUserIds ? { mentionedUserIds: input.mentionedUserIds } : {}),
   });
+
+  // El aviso a las demás réplicas. Va después del commit a propósito: avisar
+  // de un mensaje que todavía podría revertirse haría que el navegador
+  // pidiera algo que no existe.
+  const aviso = serializarAviso({
+    channelId: input.channelId,
+    messageId: post.id as string,
+  });
+  try {
+    await sql`SELECT pg_notify(${CANAL_PG}, ${aviso})`.execute(db);
+  } catch (err) {
+    // Que falle el aviso no puede tumbar el mensaje: ya está guardado, y el
+    // refresco del navegador lo traerá igual en unos segundos.
+    void err;
+  }
 
   return post;
 }
