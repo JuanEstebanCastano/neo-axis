@@ -152,25 +152,56 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
       })
       .parse(req.query);
 
+    // Separa las capas para no confundir una con otra: primero resuelve el
+    // nombre (DNS), después abre un socket TCP crudo a 443 (transporte), y
+    // recién al final intenta el HTTP. Y hace el mismo probe TCP contra dos
+    // hosts que SABEMOS que funcionan desde este mismo servidor (MailerSend y
+    // Supabase, ambos por 443): si Gutendex cuelga y esos dos abren, el
+    // problema es de Gutendex con la IP de Railway, no de la salida de Railway.
+    async function probarDns(host: string) {
+      const dns = await import("node:dns/promises");
+      const t0 = Date.now();
+      try {
+        const r = await dns.lookup(host, { all: true });
+        return { ok: true, elapsedMs: Date.now() - t0, addresses: r.map((a) => a.address) };
+      } catch (e) {
+        const o = e as { code?: string; message?: string };
+        return { ok: false, elapsedMs: Date.now() - t0, code: o.code, message: o.message };
+      }
+    }
+
+    async function probarTcp(host: string, port: number, ms: number) {
+      const net = await import("node:net");
+      const t0 = Date.now();
+      return await new Promise<Record<string, unknown>>((resolve) => {
+        const sock = net.connect({ host, port });
+        const cerrar = (extra: Record<string, unknown>) => {
+          sock.destroy();
+          resolve({ host, port, elapsedMs: Date.now() - t0, ...extra });
+        };
+        sock.setTimeout(ms);
+        sock.once("connect", () => cerrar({ ok: true }));
+        sock.once("timeout", () => cerrar({ ok: false, error: "timeout" }));
+        sock.once("error", (e) => cerrar({ ok: false, error: (e as { code?: string }).code ?? String(e) }));
+      });
+    }
+
     const url = `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
     const inicio = Date.now();
+    let http: Record<string, unknown>;
     try {
       const res = await fetch(url, {
         headers: { "User-Agent": "neo-axis-app", Accept: "application/json" },
         signal: AbortSignal.timeout(q.timeoutMs),
       });
-      const elapsedMs = Date.now() - inicio;
       let count: number | null = null;
       try {
         count = ((await res.json()) as { count?: number })?.count ?? null;
       } catch {
         count = null;
       }
-      return { ok: res.ok, status: res.status, elapsedMs, count, url };
+      http = { ok: res.ok, status: res.status, elapsedMs: Date.now() - inicio, count };
     } catch (err) {
-      const elapsedMs = Date.now() - inicio;
-      // Aplana la cadena de causas: lo que importa suele estar varios niveles
-      // adentro (fetch failed -> SocketError -> el errno real).
       const cadena: unknown[] = [];
       let e: unknown = err;
       for (let i = 0; i < 6 && e; i++) {
@@ -184,8 +215,19 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
         });
         e = o.cause;
       }
-      return { ok: false, elapsedMs, url, error: cadena };
+      http = { ok: false, elapsedMs: Date.now() - inicio, error: cadena };
     }
+
+    return {
+      url,
+      dns: await probarDns("gutendex.com"),
+      tcp: {
+        gutendex: await probarTcp("gutendex.com", 443, 12000),
+        mailersend_control: await probarTcp("api.mailersend.com", 443, 12000),
+        supabase_control: await probarTcp("dkdofozfgaajxyiocsul.supabase.co", 443, 12000),
+      },
+      http,
+    };
   });
 
   app.post("/books/external/import", async (req, reply) => {
