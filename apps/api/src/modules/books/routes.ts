@@ -19,7 +19,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
-import { notFound, forbidden, badRequest, conflict } from "../../lib/errors.js";
+import { notFound, forbidden, badRequest, conflict, serviceUnavailable } from "../../lib/errors.js";
 import { config } from "../../config.js";
 import { prettifyZodError } from "../../lib/validation.js";
 import { presignDownload, putObject, deleteObject } from "../../lib/storage.js";
@@ -232,7 +232,21 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
 
       // Primero el storage, después la base. Al revés, una fila apuntaría a
       // un objeto que quizá nunca llegó a subirse.
-      await putObject(config.S3_BUCKET, objectKey, cuerpo, mediaType);
+      //
+      // El try es propio: si el storage rechaza la escritura —credenciales S3
+      // mal puestas, sin permiso o bucket equivocado— el error del SDK sube
+      // crudo y la persona ve "Error interno", que no dice nada de lo que pasó.
+      // Pasa en el servidor, no en lo que mandó quien sube, así que es un 503
+      // con un mensaje entendible, igual que cuando el catálogo externo no
+      // responde. El detalle real queda en el log, que es donde se diagnostica.
+      try {
+        await putObject(config.S3_BUCKET, objectKey, cuerpo, mediaType);
+      } catch (err) {
+        app.log.error({ err, objectKey, bucket: config.S3_BUCKET }, "falló la subida al storage");
+        throw serviceUnavailable(
+          "No pudimos guardar el archivo ahora mismo. Intentá de nuevo en un momento",
+        );
+      }
 
       try {
         const file = await guardarArchivoDeLibro(app.db, {
