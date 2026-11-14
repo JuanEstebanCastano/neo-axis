@@ -16,6 +16,7 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 09 | [Repositorios de GitHub](09-github-repositorios.md) | Ver y escribir archivos de tus repos desde Neo Axis |
 | 10 | [Catálogo externo](10-catalogo-externo.md) | Traer libros de dominio público, y por qué cómics y manga no |
 | 11 | [Archivos de libros](11-archivos-de-libros.md) | Subir un EPUB/PDF/MOBI y descargarlo firmado |
+| 12 | [Recorrido de demo](12-recorrido-de-demo.md) | Qué mostrar en la defensa, en qué orden, y qué puede fallar |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.
