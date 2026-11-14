@@ -187,35 +187,43 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const url = `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
-    const inicio = Date.now();
-    let http: Record<string, unknown>;
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "neo-axis-app", Accept: "application/json" },
-        signal: AbortSignal.timeout(q.timeoutMs),
-      });
-      let count: number | null = null;
+
+    // Prueba el HTTP con dos User-Agent: el nuestro ("neo-axis-app", que en una
+    // IP de datacenter es lo que la mitigación de bots de Cloudflare marca) y
+    // uno de navegador. Si el de navegador pasa y el nuestro no, el arreglo es
+    // cambiar una línea en gutendex.ts.
+    const UA_NAVEGADOR =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    async function probarHttp(ua: string) {
+      const inicio = Date.now();
       try {
-        count = ((await res.json()) as { count?: number })?.count ?? null;
-      } catch {
-        count = null;
-      }
-      http = { ok: res.ok, status: res.status, elapsedMs: Date.now() - inicio, count };
-    } catch (err) {
-      const cadena: unknown[] = [];
-      let e: unknown = err;
-      for (let i = 0; i < 6 && e; i++) {
-        const o = e as {
-          name?: string; message?: string; code?: string;
-          errno?: number; syscall?: string; hostname?: string; cause?: unknown;
-        };
-        cadena.push({
-          name: o.name, message: o.message, code: o.code,
-          errno: o.errno, syscall: o.syscall, hostname: o.hostname,
+        const res = await fetch(url, {
+          headers: { "User-Agent": ua, Accept: "application/json" },
+          signal: AbortSignal.timeout(q.timeoutMs),
         });
-        e = o.cause;
+        let count: number | null = null;
+        try {
+          count = ((await res.json()) as { count?: number })?.count ?? null;
+        } catch {
+          count = null;
+        }
+        return { ok: res.ok, status: res.status, elapsedMs: Date.now() - inicio, count };
+      } catch (err) {
+        const cadena: unknown[] = [];
+        let e: unknown = err;
+        for (let i = 0; i < 6 && e; i++) {
+          const o = e as {
+            name?: string; message?: string; code?: string;
+            errno?: number; syscall?: string; hostname?: string; cause?: unknown;
+          };
+          cadena.push({
+            name: o.name, message: o.message, code: o.code,
+            errno: o.errno, syscall: o.syscall, hostname: o.hostname,
+          });
+          e = o.cause;
+        }
+        return { ok: false, elapsedMs: Date.now() - inicio, error: cadena };
       }
-      http = { ok: false, elapsedMs: Date.now() - inicio, error: cadena };
     }
 
     return {
@@ -226,7 +234,8 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
         mailersend_control: await probarTcp("api.mailersend.com", 443, 12000),
         supabase_control: await probarTcp("dkdofozfgaajxyiocsul.supabase.co", 443, 12000),
       },
-      http,
+      httpAppUA: await probarHttp("neo-axis-app"),
+      httpBrowserUA: await probarHttp(UA_NAVEGADOR),
     };
   });
 
