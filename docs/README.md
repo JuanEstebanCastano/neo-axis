@@ -17,6 +17,8 @@ Leelos en orden si sos nuevo/a. Están pensados para leerse de corrido.
 | 10 | [Catálogo externo](10-catalogo-externo.md) | Traer libros de dominio público, y por qué cómics y manga no |
 | 11 | [Archivos de libros](11-archivos-de-libros.md) | Subir un EPUB/PDF/MOBI y descargarlo firmado |
 | 12 | [Recorrido de demo](12-recorrido-de-demo.md) | Qué mostrar en la defensa, en qué orden, y qué puede fallar |
+| 13 | [Docker](13-docker.md) | Instalar y configurar los contenedores (api, worker, caddy) y el `.env` |
+| 14 | [Arquitectura](14-arquitectura.md) | El mapa del código: qué vive dónde, y dónde va un archivo nuevo |
 
 Además, cada carpeta del proyecto tiene su propio `README.md` explicando qué
 vive ahí.
