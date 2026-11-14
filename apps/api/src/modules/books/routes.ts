@@ -149,6 +149,9 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
       .object({
         timeoutMs: z.coerce.number().int().min(1000).max(60000).default(30000),
         q: z.string().trim().min(1).max(120).default("test"),
+        // Para probar OTRA fuente (p. ej. Open Library) desde Railway sin
+        // escribir el cliente antes de saber si siquiera la alcanza.
+        url: z.string().url().startsWith("https://").max(2000).optional(),
       })
       .parse(req.query);
 
@@ -186,7 +189,7 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    const url = `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
+    const url = q.url ?? `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
 
     // Prueba el HTTP con dos User-Agent: el nuestro ("neo-axis-app", que en una
     // IP de datacenter es lo que la mitigación de bots de Cloudflare marca) y
