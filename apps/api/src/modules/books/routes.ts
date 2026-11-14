@@ -123,6 +123,71 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     return { items };
   });
 
+  /**
+   * DIAGNÓSTICO TEMPORAL (sólo admin). Habla con Gutendex directo, sin pasar
+   * por el cliente que se traga el error, y devuelve crudo lo que pase: el
+   * status si contesta, o la cadena de causas del fetch si falla.
+   *
+   * undici (el fetch de Node) guarda el motivo real en err.cause, no en el
+   * mensaje de arriba. Lo que distingue el caso:
+   *   ENOTFOUND / EAI_AGAIN      -> DNS: no resuelve el nombre
+   *   ECONNREFUSED               -> rechazo: algo contesta que no
+   *   UND_ERR_CONNECT_TIMEOUT    -> la conexión nunca se abre (bloqueo/tarpit)
+   *   ETIMEDOUT                  -> abrió pero no respondió a tiempo
+   *   TimeoutError / AbortError  -> saltó NUESTRO corte (el de abajo)
+   * El timeout es alto y configurable a propósito: si Gutendex sólo está lento,
+   * acá se ve que contesta (ok:true, elapsedMs grande) en vez de parecer caído.
+   *
+   * Quitar junto con el de storage una vez cerrado el tema.
+   */
+  app.get("/books/external/_diag", async (req) => {
+    app.requireAuth(req);
+    if (!req.permissions.has(PERMISSIONS.usersManageRoles)) {
+      throw forbidden("Sólo administración");
+    }
+    const q = z
+      .object({
+        timeoutMs: z.coerce.number().int().min(1000).max(60000).default(30000),
+        q: z.string().trim().min(1).max(120).default("test"),
+      })
+      .parse(req.query);
+
+    const url = `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
+    const inicio = Date.now();
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "neo-axis-app", Accept: "application/json" },
+        signal: AbortSignal.timeout(q.timeoutMs),
+      });
+      const elapsedMs = Date.now() - inicio;
+      let count: number | null = null;
+      try {
+        count = ((await res.json()) as { count?: number })?.count ?? null;
+      } catch {
+        count = null;
+      }
+      return { ok: res.ok, status: res.status, elapsedMs, count, url };
+    } catch (err) {
+      const elapsedMs = Date.now() - inicio;
+      // Aplana la cadena de causas: lo que importa suele estar varios niveles
+      // adentro (fetch failed -> SocketError -> el errno real).
+      const cadena: unknown[] = [];
+      let e: unknown = err;
+      for (let i = 0; i < 6 && e; i++) {
+        const o = e as {
+          name?: string; message?: string; code?: string;
+          errno?: number; syscall?: string; hostname?: string; cause?: unknown;
+        };
+        cadena.push({
+          name: o.name, message: o.message, code: o.code,
+          errno: o.errno, syscall: o.syscall, hostname: o.hostname,
+        });
+        e = o.cause;
+      }
+      return { ok: false, elapsedMs, url, error: cadena };
+    }
+  });
+
   app.post("/books/external/import", async (req, reply) => {
     app.requireAuth(req);
     const body = z
