@@ -34,6 +34,7 @@ import {
   eliminarArchivoDeLibro,
 } from "./service.js";
 import { booksQuery, linkBookBody } from "./schemas.js";
+import { PERMISSIONS } from "../../lib/rbac.js";
 import { buscarLibros, obtenerLibro } from "./gutendex.js";
 import {
   detectarFormato,
@@ -243,6 +244,17 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
         await putObject(config.S3_BUCKET, objectKey, cuerpo, mediaType);
       } catch (err) {
         app.log.error({ err, objectKey, bucket: config.S3_BUCKET }, "falló la subida al storage");
+        // A quien administra se le devuelve la CLASE de error del SDK, no el
+        // mensaje genérico: AccessDenied, SignatureDoesNotMatch,
+        // InvalidAccessKeyId, NoSuchBucket… cada una apunta a una variable S3
+        // distinta. Es la clase del error, no un secreto, y queda tras el
+        // permiso de administración. Para el resto, el mensaje neutro de siempre.
+        if (req.permissions.has(PERMISSIONS.usersManageRoles)) {
+          const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+          throw serviceUnavailable(
+            `Storage rechazó la escritura: ${e.name ?? "error"} (HTTP ${e.$metadata?.httpStatusCode ?? "?"}) — ${e.message ?? ""}`.trim(),
+          );
+        }
         throw serviceUnavailable(
           "No pudimos guardar el archivo ahora mismo. Intentá de nuevo en un momento",
         );
