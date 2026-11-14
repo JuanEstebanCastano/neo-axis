@@ -41,7 +41,7 @@ function Cover({ book }: { book: Book }) {
 
 // ── Traer libros del catálogo externo ─────────────────────────────────
 
-/** Los idiomas con más fondo en Project Gutenberg, y "cualquiera". */
+/** Los idiomas con más fondo en Open Library, y "cualquiera". */
 const IDIOMAS = ["es", "en", "fr", "de", "pt", "it"];
 
 /**
@@ -403,7 +403,7 @@ function BarraFiltros({
             onChange={(e) => onCambiar({ ...filtros, source: e.target.value as BookFilters["source"] })}
           >
             <option value="any">{t("library.sourceAny")}</option>
-            <option value="gutendex">{t("library.sourceGutendex")}</option>
+            <option value="openlibrary">{t("library.sourceOpenLibrary")}</option>
             <option value="manual">{t("library.sourceManual")}</option>
           </Select>
         </Field>

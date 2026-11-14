@@ -35,7 +35,7 @@ import {
 } from "./service.js";
 import { booksQuery, linkBookBody } from "./schemas.js";
 import { PERMISSIONS } from "../../lib/rbac.js";
-import { buscarLibros, obtenerLibro } from "./gutendex.js";
+import { buscarLibros, obtenerLibro } from "./openlibrary.js";
 import {
   detectarFormato,
   claveDeObjeto,
@@ -103,11 +103,11 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     return { book };
   });
 
-  // ── Catálogo externo (Project Gutenberg vía Gutendex) ───────────────
+  // ── Catálogo externo (Open Library / Internet Archive) ─────────────
   //
   // Las dos piden sesión. Buscar no cambia nada nuestro, pero sin sesión el
   // API quedaría de proxy gratuito hacia un servicio que no es nuestro, y
-  // quien se lleva el tráfico ajeno es Gutendex.
+  // quien se lleva el tráfico ajeno es Open Library.
 
   app.get("/books/external/search", async (req) => {
     app.requireAuth(req);
@@ -123,134 +123,19 @@ export const bookRoutes: FastifyPluginAsync = async (app) => {
     return { items };
   });
 
-  /**
-   * DIAGNÓSTICO TEMPORAL (sólo admin). Habla con Gutendex directo, sin pasar
-   * por el cliente que se traga el error, y devuelve crudo lo que pase: el
-   * status si contesta, o la cadena de causas del fetch si falla.
-   *
-   * undici (el fetch de Node) guarda el motivo real en err.cause, no en el
-   * mensaje de arriba. Lo que distingue el caso:
-   *   ENOTFOUND / EAI_AGAIN      -> DNS: no resuelve el nombre
-   *   ECONNREFUSED               -> rechazo: algo contesta que no
-   *   UND_ERR_CONNECT_TIMEOUT    -> la conexión nunca se abre (bloqueo/tarpit)
-   *   ETIMEDOUT                  -> abrió pero no respondió a tiempo
-   *   TimeoutError / AbortError  -> saltó NUESTRO corte (el de abajo)
-   * El timeout es alto y configurable a propósito: si Gutendex sólo está lento,
-   * acá se ve que contesta (ok:true, elapsedMs grande) en vez de parecer caído.
-   *
-   * Quitar junto con el de storage una vez cerrado el tema.
-   */
-  app.get("/books/external/_diag", async (req) => {
-    app.requireAuth(req);
-    if (!req.permissions.has(PERMISSIONS.usersManageRoles)) {
-      throw forbidden("Sólo administración");
-    }
-    const q = z
-      .object({
-        timeoutMs: z.coerce.number().int().min(1000).max(60000).default(30000),
-        q: z.string().trim().min(1).max(120).default("test"),
-        // Para probar OTRA fuente (p. ej. Open Library) desde Railway sin
-        // escribir el cliente antes de saber si siquiera la alcanza.
-        url: z.string().url().startsWith("https://").max(2000).optional(),
-      })
-      .parse(req.query);
-
-    // Separa las capas para no confundir una con otra: primero resuelve el
-    // nombre (DNS), después abre un socket TCP crudo a 443 (transporte), y
-    // recién al final intenta el HTTP. Y hace el mismo probe TCP contra dos
-    // hosts que SABEMOS que funcionan desde este mismo servidor (MailerSend y
-    // Supabase, ambos por 443): si Gutendex cuelga y esos dos abren, el
-    // problema es de Gutendex con la IP de Railway, no de la salida de Railway.
-    async function probarDns(host: string) {
-      const dns = await import("node:dns/promises");
-      const t0 = Date.now();
-      try {
-        const r = await dns.lookup(host, { all: true });
-        return { ok: true, elapsedMs: Date.now() - t0, addresses: r.map((a) => a.address) };
-      } catch (e) {
-        const o = e as { code?: string; message?: string };
-        return { ok: false, elapsedMs: Date.now() - t0, code: o.code, message: o.message };
-      }
-    }
-
-    async function probarTcp(host: string, port: number, ms: number) {
-      const net = await import("node:net");
-      const t0 = Date.now();
-      return await new Promise<Record<string, unknown>>((resolve) => {
-        const sock = net.connect({ host, port });
-        const cerrar = (extra: Record<string, unknown>) => {
-          sock.destroy();
-          resolve({ host, port, elapsedMs: Date.now() - t0, ...extra });
-        };
-        sock.setTimeout(ms);
-        sock.once("connect", () => cerrar({ ok: true }));
-        sock.once("timeout", () => cerrar({ ok: false, error: "timeout" }));
-        sock.once("error", (e) => cerrar({ ok: false, error: (e as { code?: string }).code ?? String(e) }));
-      });
-    }
-
-    const url = q.url ?? `https://gutendex.com/books?search=${encodeURIComponent(q.q)}`;
-
-    // Prueba el HTTP con dos User-Agent: el nuestro ("neo-axis-app", que en una
-    // IP de datacenter es lo que la mitigación de bots de Cloudflare marca) y
-    // uno de navegador. Si el de navegador pasa y el nuestro no, el arreglo es
-    // cambiar una línea en gutendex.ts.
-    const UA_NAVEGADOR =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-    async function probarHttp(ua: string) {
-      const inicio = Date.now();
-      try {
-        const res = await fetch(url, {
-          headers: { "User-Agent": ua, Accept: "application/json" },
-          signal: AbortSignal.timeout(q.timeoutMs),
-        });
-        let count: number | null = null;
-        try {
-          count = ((await res.json()) as { count?: number })?.count ?? null;
-        } catch {
-          count = null;
-        }
-        return { ok: res.ok, status: res.status, elapsedMs: Date.now() - inicio, count };
-      } catch (err) {
-        const cadena: unknown[] = [];
-        let e: unknown = err;
-        for (let i = 0; i < 6 && e; i++) {
-          const o = e as {
-            name?: string; message?: string; code?: string;
-            errno?: number; syscall?: string; hostname?: string; cause?: unknown;
-          };
-          cadena.push({
-            name: o.name, message: o.message, code: o.code,
-            errno: o.errno, syscall: o.syscall, hostname: o.hostname,
-          });
-          e = o.cause;
-        }
-        return { ok: false, elapsedMs: Date.now() - inicio, error: cadena };
-      }
-    }
-
-    return {
-      url,
-      dns: await probarDns("gutendex.com"),
-      tcp: {
-        gutendex: await probarTcp("gutendex.com", 443, 12000),
-        mailersend_control: await probarTcp("api.mailersend.com", 443, 12000),
-        supabase_control: await probarTcp("dkdofozfgaajxyiocsul.supabase.co", 443, 12000),
-      },
-      httpAppUA: await probarHttp("neo-axis-app"),
-      httpBrowserUA: await probarHttp(UA_NAVEGADOR),
-    };
-  });
-
   app.post("/books/external/import", async (req, reply) => {
     app.requireAuth(req);
     const body = z
-      .object({ provider: z.literal("gutendex"), externalId: z.coerce.number().int().positive() })
+      .object({
+        provider: z.literal("openlibrary"),
+        // La "work key" de Open Library: "OL" + dígitos + "W".
+        externalId: z.string().trim().regex(/^OL\d+W$/, "Clave de Open Library inválida"),
+      })
       .parse(req.body);
 
     // El libro se vuelve a pedir a la fuente en vez de confiar en lo que
     // mande el cliente: así el título, los enlaces y la nota de derechos
-    // salen siempre de Gutendex y no de quien llama.
+    // salen siempre de Open Library y no de quien llama.
     const libro = await obtenerLibro(body.externalId);
     const { bookId, yaExistia } = await importarLibroExterno(app.db, libro);
 

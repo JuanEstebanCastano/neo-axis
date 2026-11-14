@@ -61,7 +61,7 @@ export const booksQuery = z.object({
   /** Código de idioma tal como lo guarda la fila (es, en…). */
   lang: z.string().trim().min(2).max(10).optional(),
   /** De dónde salió: del catálogo externo, de una persona, o cualquiera. */
-  source: z.enum(["gutendex", "manual", "any"]).default("any"),
+  source: z.enum(["openlibrary", "manual", "any"]).default("any"),
   /** Qué se puede hacer con él. */
   access: z.enum(["any", "readable", "downloadable"]).default("any"),
 });

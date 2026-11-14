@@ -97,7 +97,7 @@ export interface Book {
 export interface BookFilters {
   q?: string;
   lang?: string;
-  source?: "any" | "gutendex" | "manual";
+  source?: "any" | "openlibrary" | "manual";
   access?: "any" | "readable" | "downloadable";
 }
 
@@ -116,7 +116,7 @@ export interface LinkBookInput {
 
 /** Un resultado del catálogo externo, todavía sin importar. */
 export interface LibroExterno {
-  provider: "gutendex"; externalId: string; title: string; authors: string[];
+  provider: "openlibrary"; externalId: string; title: string; authors: string[];
   languages: string[]; publicationYear: number | null; coverUrl: string | null;
   readUrl: string | null; downloadUrl: string | null;
   sourceUrl: string; rightsNote: string; downloadCount: number;
@@ -310,7 +310,7 @@ export const api = {
   linkBook: (b: LinkBookInput) =>
     req<{ bookId: string }>("/books/link", { method: "POST", body: JSON.stringify(b) }),
 
-  // Catálogo externo: buscar en Project Gutenberg e importar a la biblioteca.
+  // Catálogo externo: buscar en Open Library e importar a la biblioteca.
   searchExternalBooks: (q: string, lang?: string) => {
     const qs = new URLSearchParams({ q });
     if (lang) qs.set("lang", lang);
@@ -319,7 +319,7 @@ export const api = {
   importExternalBook: (externalId: string) =>
     req<{ bookId: string; yaExistia: boolean }>("/books/external/import", {
       method: "POST",
-      body: JSON.stringify({ provider: "gutendex", externalId }),
+      body: JSON.stringify({ provider: "openlibrary", externalId }),
     }),
   book: (id: string) => req<{ book: Book }>(`/books/${id}`),
   setShelf: (id: string, b: { status: string; progress?: number }) =>

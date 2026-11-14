@@ -171,10 +171,10 @@ export const es = {
   "library.emptyBody": "Todavía no hay libros cargados en el catálogo.",
   "library.coverAlt": "Portada de {title}",
 
-  // Importar del catálogo externo (Project Gutenberg vía Gutendex).
+  // Importar del catálogo externo (Open Library / Internet Archive).
   "library.import": "Traer libros",
-  "library.importIntro": "Busca en Project Gutenberg, que publica obras de dominio público. No copiamos el archivo: guardamos el enlace a donde ya está, con lo que la fuente declara sobre derechos.",
-  "library.importRights": "El dominio público depende del país. La fuente razona sobre la ley de Estados Unidos; en Colombia el plazo es más largo (vida del autor + 80 años). Revisa antes de difundir.",
+  "library.importIntro": "Busca en Open Library (Internet Archive) y trae obras de lectura pública. No copiamos el archivo: guardamos el enlace a donde ya está, con lo que la fuente declara sobre derechos.",
+  "library.importRights": "«Lectura pública» no es lo mismo que dominio público en todo el mundo. El dominio público depende del país; en Colombia el plazo es vida del autor + 80 años. Revisa antes de difundir.",
   "library.searchLabel": "Título o autor",
   "library.searchPlaceholder": "Cervantes, Shelley, Dracula…",
   "library.lang": "Idioma",
@@ -199,7 +199,7 @@ export const es = {
   "library.filterLangAll": "Todos",
   "library.filterSource": "Origen",
   "library.sourceAny": "Cualquiera",
-  "library.sourceGutendex": "Project Gutenberg",
+  "library.sourceOpenLibrary": "Open Library",
   "library.sourceManual": "Agregados por la comunidad",
   "library.filterAccess": "Disponible para",
   "library.accessAny": "Lo que sea",
@@ -213,7 +213,7 @@ export const es = {
 
   // Agregar un libro pegando sus enlaces.
   "link.add": "Agregar por enlace",
-  "link.intro": "Si el libro ya está publicado en algún sitio, pega acá sus enlaces. Igual que con Project Gutenberg, no guardamos el archivo: guardamos a dónde apunta.",
+  "link.intro": "Si el libro ya está publicado en algún sitio, pega acá sus enlaces. Igual que con Open Library, no guardamos el archivo: guardamos a dónde apunta.",
   "link.legal": "Sólo enlaces a copias publicadas legalmente: dominio público, licencia abierta, o el sitio del propio autor o editorial. Queda registrado quién agregó cada enlace.",
   "link.title": "Título",
   "link.titlePlaceholder": "La vorágine",

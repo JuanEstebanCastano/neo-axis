@@ -11,7 +11,7 @@ import type { Database, Transaction, DB } from "@neoaxis/db";
 import { sql } from "@neoaxis/db";
 import { notFound, forbidden } from "../../lib/errors.js";
 import { upsertSearchDocument, textoDeLibro } from "../../lib/search.js";
-import type { LibroExterno } from "./gutendex.js";
+import type { LibroExterno } from "./openlibrary.js";
 import type { BooksQuery, LinkBookInput } from "./schemas.js";
 
 export interface BookCard {
@@ -77,7 +77,7 @@ export async function listBooks(db: Database, filtros: BooksQuery): Promise<Book
         : sql``
     }
     ${lang ? sql`AND b.language_code = ${lang}` : sql``}
-    ${source === "gutendex" ? sql`AND b.external_provider = 'gutendex'` : sql``}
+    ${source === "openlibrary" ? sql`AND b.external_provider = 'openlibrary'` : sql``}
     ${source === "manual" ? sql`AND b.added_by IS NOT NULL` : sql``}
     ${access === "readable" ? sql`AND b.read_url IS NOT NULL` : sql``}
     -- "Descargable" incluye los archivos que alojamos nosotros, no sólo el
@@ -184,7 +184,7 @@ export async function setShelf(
 // ── Importar del catálogo externo ─────────────────────────────────────
 
 /**
- * Trae un libro de Gutendex a nuestra biblioteca.
+ * Trae un libro del catálogo externo (Open Library) a nuestra biblioteca.
  *
  * NO copia el archivo: guarda los enlaces a donde ya está publicado, más la
  * ficha de origen y lo que la fuente declara sobre derechos. Por eso no toca
@@ -214,7 +214,7 @@ export async function importarLibroExterno(db: Database, libro: LibroExterno) {
         title: libro.title.slice(0, 500),
         publicationYear: libro.publicationYear,
         coverUrl: libro.coverUrl,
-        // El primero de la lista: la columna guarda un idioma, y Gutendex
+        // El primero de la lista: la columna guarda un idioma, y Open Library
         // devuelve un arreglo porque hay ediciones bilingües.
         languageCode: libro.languages[0]?.slice(0, 10) ?? null,
         readUrl: libro.readUrl,
@@ -247,7 +247,7 @@ export async function importarLibroExterno(db: Database, libro: LibroExterno) {
 /**
  * Enlaza los autores de un libro, creándolos si no existían.
  *
- * Se buscan por NOMBRE: ni Gutendex ni quien pega un enlace dan un id
+ * Se buscan por NOMBRE: ni Open Library ni quien pega un enlace dan un id
  * estable, así que `external_id` queda nulo (el UNIQUE admite varios nulos).
  * Lo usan las dos vías de alta —importar y pegar enlace— y por eso vive acá y
  * no dentro de ninguna de las dos.
@@ -293,7 +293,7 @@ async function vincularAutores(
  * Agrega un libro a partir de los enlaces que pega una persona.
  *
  * Igual que la importación, NO alojamos nada: se guarda a dónde apunta. La
- * diferencia es de dónde sale la responsabilidad. En Gutendex la procedencia
+ * diferencia es de dónde sale la responsabilidad. En Open Library la procedencia
  * la respalda la fuente; acá la pone quien sube el enlace, y por eso quedan
  * registrados `added_by` y su declaración de derechos.
  *

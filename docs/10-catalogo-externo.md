@@ -2,12 +2,13 @@
 
 ## Qué hace
 
-Desde **Biblioteca → "Traer libros"** se busca en Project Gutenberg y se agrega
-un libro al catálogo de Neo Axis. El libro queda con su portada, sus autores y
-**un enlace para leerlo y otro para descargarlo**.
+Desde **Biblioteca → "Traer libros"** se busca en Open Library y se agrega un
+libro al catálogo de Neo Axis. El libro queda con su portada, sus autores y
+**un enlace para leerlo** en la fuente.
 
-La fuente es [Gutendex](https://gutendex.com), la API JSON de Project
-Gutenberg. No pide clave.
+La fuente es [Open Library](https://openlibrary.org), el catálogo del Internet
+Archive. Su buscador devuelve JSON, no pide clave, y marca qué obras son de
+lectura pública.
 
 ## La regla que ordena todo: enlazamos, no copiamos
 
@@ -19,36 +20,70 @@ nuestro bucket no aporta nada —el archivo ya está disponible y estable— y n
 convertiría en quien las distribuye. Enlazando, la fuente sigue siendo la
 responsable de lo que publica y nosotros mantenemos la trazabilidad.
 
-Por eso estas columnas son nuevas y **no reemplazan a `book_files`**:
+Por eso estas columnas **no reemplazan a `book_files`**:
 
 | Columna | Qué guarda |
 |---|---|
-| `read_url` | Enlace de lectura en la fuente (HTML) |
-| `download_url` | Enlace al archivo en la fuente (EPUB/PDF) |
-| `source_url` | Ficha del libro en la fuente, para verificar la procedencia |
-| `rights_note` | Lo que **la fuente declara** sobre derechos, literal |
+| `read_url` | Enlace de lectura en la fuente (el lector de Internet Archive) |
+| `download_url` | Nulo para Open Library: Internet Archive no da una URL de archivo estable por ítem, y un enlace muerto es peor que ninguno |
+| `source_url` | Ficha de la obra en Open Library, para verificar la procedencia |
+| `rights_note` | Lo que **la fuente declara** sobre acceso, en nuestros términos |
 
 `book_files` sigue siendo para los archivos que alojamos nosotros, que se bajan
-con una URL firmada. Un libro traído de fuera no tiene filas ahí.
+con una URL firmada ([11-archivos-de-libros.md](11-archivos-de-libros.md)). Un
+libro traído de fuera no tiene filas ahí.
 
-## Sobre "dominio público"
+## Por qué Open Library y no Gutendex
 
-**El dominio público depende del país.** Esto no es un detalle menor:
+La primera versión de esto hablaba con [Gutendex](https://gutendex.com), la API
+JSON de Project Gutenberg. **Funciona desde una máquina cualquiera, pero no
+desde el despliegue.** Vale la pena contar cómo se descubrió, porque el síntoma
+engañaba:
 
-- Project Gutenberg razona sobre la ley de **Estados Unidos**: vida del autor
-  + 70 años.
-- En **Colombia** el plazo es vida del autor + **80 años**.
+- Desde Railway, la búsqueda daba `503` (timeout) de forma intermitente.
+- La tentación era culpar a la red de Railway. Se verificó capa por capa:
+  **DNS** resuelve en 1 ms; el **socket TCP** a `gutendex.com:443` abre en 2-3
+  ms, siempre; el **GET HTTP** se cuelga el timeout completo. Y el mismo socket
+  TCP abre bien contra MailerSend y Supabase, que el API ya usa por 443.
+- O sea: la salida de Railway funciona. Lo que falla es **la respuesta HTTP**, y
+  sólo con Gutendex. Es **Cloudflare, delante de Gutendex, tarpiteando a nivel
+  HTTP las IP de datacenter**: acepta la conexión y se traga la petición. No es
+  DNS, no es el User-Agent (se probó con uno de navegador, idéntico), no es un
+  timeout corto (se probó con 30 s, cuelga igual). Es un muro anti-bot contra
+  el tráfico servidor-a-servidor.
 
-Una obra libre en Gutenberg puede seguir protegida acá. El sistema hace lo que
-puede, que es ser honesto sobre lo que sabe:
+Se probó incluso **proxear a través de una Edge Function de Supabase**: su IP
+pasaba… hasta que el volumen de pruebas la hizo marcar también. El muro no es
+"la IP de Railway", es "cualquier IP de datacenter con suficiente tráfico".
 
-1. La búsqueda va con `copyright=false`, así que **lo que está bajo derechos ni
-   se muestra**.
-2. Al importar se vuelve a comprobar contra la fuente, porque el id llega del
-   cliente y podría ser cualquiera.
-3. `rights_note` guarda la declaración de la fuente **en sus términos**
-   (`"Public domain in the USA (Project Gutenberg)"`), sin traducirla a una
-   afirmación nuestra.
+Open Library, en cambio, **responde desde datacenter** (verificado desde
+Railway: `200` en ~40 ms, de forma estable). Por eso es la fuente. La contra es
+que su modelo no es "sólo Project Gutenberg", así que el filtro de acceso lo
+ponemos nosotros (ver abajo).
+
+## Sobre "lectura pública" y "dominio público"
+
+**No son lo mismo, y el dominio público depende del país.** Open Library marca
+cada obra con `ebook_access`:
+
+- `"public"` → se lee entera y gratis (lo que traemos).
+- `"borrowable"`, `"printdisabled"`, `"no_ebook"` → no se importan.
+
+Que algo sea de **lectura pública** en Internet Archive no equivale a que sea de
+**dominio público** en Colombia:
+
+- Muchas obras `public` lo son porque su dominio público se razona sobre la ley
+  de **Estados Unidos**.
+- En **Colombia** el plazo es vida del autor + **80 años**, más largo.
+
+El sistema hace lo que puede, que es ser honesto sobre lo que sabe:
+
+1. La búsqueda **sólo muestra** lo que viene con `ebook_access = "public"`.
+2. Al importar se **vuelve a comprobar** contra la fuente, porque la clave llega
+   del cliente y podría ser cualquiera.
+3. `rights_note` guarda `"Lectura pública (Open Library / Internet Archive)"`:
+   describe lo que la fuente garantiza —que se puede leer— sin afirmar nada
+   sobre derechos que no nos consta.
 4. El aviso sobre el plazo colombiano sale **en la pantalla de importación**,
    junto al botón, no enterrado acá.
 
@@ -60,12 +95,12 @@ pueda revisarlo.
 
 | Método y ruta | Qué hace |
 |---|---|
-| `GET /api/v1/books/external/search?q=&lang=` | Busca en Gutendex. Sólo dominio público. |
-| `POST /api/v1/books/external/import` | Importa por `externalId`. Idempotente. |
+| `GET /api/v1/books/external/search?q=&lang=` | Busca en Open Library. Sólo lectura pública. |
+| `POST /api/v1/books/external/import` | Importa por `externalId` (la *work key*, p. ej. `OL2000W`). Idempotente. |
 
 **Las dos piden sesión.** Buscar no cambia nada nuestro, pero sin sesión el API
 quedaría de proxy gratuito hacia un servicio que no es nuestro, y quien se
-lleva ese tráfico es Gutendex.
+lleva ese tráfico es Open Library.
 
 Importar es **idempotente**: si el libro ya está, devuelve `200` con el que hay
 en vez de duplicarlo. Lo respalda el `UNIQUE (external_provider, external_id)`
@@ -73,16 +108,16 @@ que `app.books` ya tenía.
 
 Al importar, el servidor **vuelve a pedir el libro a la fuente** en vez de
 confiar en lo que mande el cliente. Así el título, los enlaces y la nota de
-derechos salen siempre de Gutendex.
+acceso salen siempre de Open Library.
 
 ## Qué hace cada pieza
 
 | Archivo | Para qué |
 |---|---|
-| `apps/api/src/modules/books/gutendex.ts` | Lo único que conoce `gutendex.com`. Entra una búsqueda, sale un libro normalizado. |
-| `apps/api/src/modules/books/service.ts` | `importarLibroExterno`: inserta el libro y enlaza sus autores. |
+| `apps/api/src/modules/books/openlibrary.ts` | Lo único que conoce `openlibrary.org`. Entra una búsqueda, sale un libro normalizado. Las partes puras (`normalizar`, `esPublico`) tienen tests. |
+| `apps/api/src/modules/books/service.ts` | `importarLibroExterno`: inserta el libro, enlaza sus autores y lo mete al índice de búsqueda. |
 | `apps/web/src/pages/Library.tsx` | Panel de búsqueda e importación. |
-| `apps/web/src/pages/BookDetail.tsx` | Los botones de leer / descargar / ficha de origen. |
+| `apps/web/src/pages/BookDetail.tsx` | Los botones de leer / ficha de origen. |
 
 ## Cómics y manga: por qué no están
 
@@ -111,7 +146,12 @@ con `read_url` apuntando a la plataforma oficial, sin archivo.
 
 ## Probarlo
 
-El entorno de desarrollo de esta máquina **no tiene salida a `gutendex.com`**
-(sólo a hosts permitidos, como Supabase). La búsqueda falla con "No pudimos
-consultar el catálogo externo" hasta probarla desde una red con salida abierta
-o desde el despliegue.
+El entorno de desarrollo de esta máquina alcanza `openlibrary.org` y
+`archive.org` (están en los hosts permitidos; `gutendex.com` no, que fue parte
+de cómo se detectó el problema de arriba). Una búsqueda de ejemplo:
+
+```bash
+curl "https://openlibrary.org/search.json?q=quijote&language=spa&fields=key,title,ebook_access&limit=5"
+```
+
+Los que importamos son los que traen `"ebook_access": "public"`.

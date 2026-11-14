@@ -168,10 +168,10 @@ export const en: Record<TranslationKey, string> = {
   "library.emptyBody": "There are no books in the catalogue yet.",
   "library.coverAlt": "Cover of {title}",
 
-  // Importing from the external catalogue (Project Gutenberg via Gutendex).
+  // Importing from the external catalogue (Open Library / Internet Archive).
   "library.import": "Bring in books",
-  "library.importIntro": "Search Project Gutenberg, which publishes public-domain works. We do not copy the file: we keep a link to where it already is, along with what the source declares about rights.",
-  "library.importRights": "Public domain depends on the country. The source reasons about United States law; in Colombia the term is longer (author lifetime + 80 years). Check before redistributing.",
+  "library.importIntro": "Search Open Library (Internet Archive) and bring in publicly readable works. We do not copy the file: we keep a link to where it already is, along with what the source declares about rights.",
+  "library.importRights": "“Publicly readable” is not the same as public domain everywhere. Public domain depends on the country; in Colombia the term is author lifetime + 80 years. Check before redistributing.",
   "library.searchLabel": "Title or author",
   "library.searchPlaceholder": "Cervantes, Shelley, Dracula…",
   "library.lang": "Language",
@@ -196,7 +196,7 @@ export const en: Record<TranslationKey, string> = {
   "library.filterLangAll": "All",
   "library.filterSource": "Source",
   "library.sourceAny": "Any",
-  "library.sourceGutendex": "Project Gutenberg",
+  "library.sourceOpenLibrary": "Open Library",
   "library.sourceManual": "Added by the community",
   "library.filterAccess": "Available to",
   "library.accessAny": "Anything",
@@ -210,7 +210,7 @@ export const en: Record<TranslationKey, string> = {
 
   // Adding a book by pasting its links.
   "link.add": "Add by link",
-  "link.intro": "If the book is already published somewhere, paste its links here. As with Project Gutenberg, we do not keep the file: we keep where it points to.",
+  "link.intro": "If the book is already published somewhere, paste its links here. As with Open Library, we do not keep the file: we keep where it points to.",
   "link.legal": "Only links to legally published copies: public domain, open licence, or the author’s or publisher’s own site. Who added each link is recorded.",
   "link.title": "Title",
   "link.titlePlaceholder": "The Vortex",

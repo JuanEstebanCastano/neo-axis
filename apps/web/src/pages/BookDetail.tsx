@@ -25,7 +25,7 @@ const MAX_MB = 25;
 /**
  * Los archivos que alojamos nosotros: listarlos, subir uno, borrar el propio.
  *
- * Va aparte de los enlaces externos y no en su lugar: un libro de Gutenberg
+ * Va aparte de los enlaces externos y no en su lugar: un libro de Open Library
  * tiene enlace a la fuente Y puede tener un EPUB nuestro. Antes esto era un
  * if/else y el archivo subido quedaba invisible en todo libro importado.
  */
@@ -344,7 +344,7 @@ export function BookDetail() {
               )}
 
               {/* Lo nuestro va SIEMPRE, aunque el libro tenga enlaces afuera:
-                  un libro importado de Gutenberg puede tener además un EPUB
+                  un libro importado de Open Library puede tener además un EPUB
                   subido acá, y antes ese archivo quedaba invisible. */}
               {(book.readUrl || book.downloadUrl) && <h4 className="detail__sub">{t("book.ourFiles")}</h4>}
               <ArchivosDelLibro
